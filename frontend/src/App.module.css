@@ -1,0 +1,40 @@
+.app {
+  width: 100%;
+  min-height: 100%;
+}
+
+/* Glass Toast Styling */
+.glassToast {
+  background: rgba(12, 18, 38, 0.45) !important;
+  backdrop-filter: blur(12px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(12px) saturate(180%) !important;
+  border: 1px solid rgba(105, 149, 255, 0.2) !important;
+  border-radius: 16px !important;
+  padding: 12px 20px !important;
+  color: #d2e9ff !important;
+  font-family: "Trebuchet MS", "Segoe UI", sans-serif !important;
+  font-size: 0.9rem !important;
+  letter-spacing: 0.05em !important;
+  box-shadow: 
+    0 8px 32px 0 rgba(0, 0, 0, 0.8),
+    0 0 15px rgba(72, 112, 255, 0.1) !important;
+  animation: toastEntrance 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+/* Optional: Slight pulse animation for the toast */
+@keyframes toastEntrance {
+  from {
+    transform: translateX(100%) scale(0.9);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0) scale(1);
+    opacity: 1;
+  }
+}
+
+/* Targeting the text specifically to ensure contrast */
+.glassToast b {
+  color: #fff;
+  text-shadow: 0 0 8px rgba(139, 188, 255, 0.4);
+}

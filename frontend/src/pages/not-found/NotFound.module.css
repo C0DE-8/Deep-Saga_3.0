@@ -1,0 +1,90 @@
+.page {
+  min-height: 100vh;
+  min-height: 100svh;
+  width: 100%;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  box-sizing: border-box;
+  font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+  color: #d2e9ff;
+  background:
+    radial-gradient(circle at 50% 30%, rgba(76, 128, 255, 0.16), transparent 28%),
+    radial-gradient(circle at 20% 70%, rgba(155, 93, 255, 0.12), transparent 24%),
+    #030613;
+}
+
+.panel {
+  width: min(100%, 520px);
+  padding: 30px 24px;
+  border: 1px solid rgba(105, 149, 255, 0.18);
+  border-radius: 16px;
+  background: rgba(8, 14, 32, 0.72);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.42);
+  text-align: center;
+}
+
+.code {
+  margin: 0 0 10px;
+  color: #76a9ff;
+  font-size: 0.75rem;
+  letter-spacing: 0.22em;
+}
+
+.title {
+  margin: 0;
+  font-size: clamp(2rem, 8vw, 4rem);
+  line-height: 1;
+}
+
+.message {
+  margin: 16px auto 24px;
+  max-width: 360px;
+  color: #9aa9bd;
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
+.primaryLink,
+.secondaryLink {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  padding: 0 16px;
+  color: #d6f1ff;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+.primaryLink {
+  border: 1px solid rgba(117, 201, 255, 0.28);
+  background: linear-gradient(180deg, #1a2a5a, #0d1635);
+}
+
+.secondaryLink {
+  border: 1px solid rgba(156, 127, 255, 0.2);
+  background: rgba(8, 14, 32, 0.52);
+  color: #b9a9ea;
+}
+
+@media (max-width: 420px) {
+  .actions {
+    flex-direction: column;
+  }
+
+  .primaryLink,
+  .secondaryLink {
+    width: 100%;
+  }
+}

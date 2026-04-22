@@ -1,0 +1,512 @@
+.page {
+  min-height: 100vh;
+  background: #000;
+  color: #f3f3f3;
+  display: flex;
+  flex-direction: column;
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+.content {
+  flex: 1;
+  padding: 96px 20px 110px;
+  max-width: 720px;
+  width: 100%;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+.topBar {
+  display: grid;
+  grid-template-columns: 80px 1fr 50px;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.leftGroup {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logo {
+  margin: 0;
+  text-align: center;
+  font-size: 2rem;
+  font-weight: 500;
+  color: #f5f5f5;
+  letter-spacing: 0.5px;
+}
+
+.floorNumber {
+  font-size: 2rem;
+  line-height: 1;
+  color: #f5f5f5;
+}
+
+.iconButton {
+  border: none;
+  background: transparent;
+  color: #f5f5f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  cursor: pointer;
+}
+
+.statsCard {
+  border: 2px solid #d8d8d8;
+  border-radius: 8px;
+  min-height: 80px;
+  padding: 0 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.statItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.45rem;
+}
+
+.statLabel {
+  color: #eaeaea;
+}
+
+.statValue {
+  color: #ffffff;
+  font-weight: 500;
+}
+
+.plusIcon {
+  color: #39ff3d;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.healthTrack {
+  width: 100%;
+  height: 6px;
+  background: #151515;
+  border: 1px solid #2d2d2d;
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+
+.healthFill {
+  height: 100%;
+  background: #39ff3d;
+  transition: width 0.25s ease;
+}
+
+.metaGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.metaGrid span {
+  min-height: 36px;
+  border: 1px solid #333;
+  color: #d8d8d8;
+  background: #070707;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 8px;
+  text-align: center;
+  font-size: 0.82rem;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.statusText {
+  margin: 0 0 18px;
+  color: #9fc9ff;
+  text-align: center;
+  line-height: 1.4;
+  font-size: 0.95rem;
+}
+
+.loadingPanel {
+  min-height: 280px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  color: #d8d8d8;
+}
+
+.loadingPanel p {
+  margin: 0;
+}
+
+.storyHeader {
+  display: grid;
+  grid-template-columns: 50px 1fr 50px;
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.chevronButton {
+  border: none;
+  background: transparent;
+  color: #f0f0f0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 0;
+  cursor: pointer;
+}
+
+.storyHeaderCenter {
+  text-align: center;
+}
+
+.storyMode {
+  margin: 0;
+  font-size: 1.8rem;
+  font-weight: 500;
+}
+
+.storyImageButton {
+  color: #2493ff;
+  justify-self: end;
+}
+
+.locationTitle {
+  text-align: center;
+  margin: 8px 0 34px;
+  font-size: 1.75rem;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.storySection {
+  margin-bottom: 28px;
+}
+
+.storyText {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.45;
+  color: #ededed;
+  letter-spacing: 0.2px;
+  white-space: pre-line;
+}
+
+.flagWrap {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 18px;
+}
+
+.flagButton {
+  border: none;
+  background: transparent;
+  color: #ff1f1f;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.choicesSection {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.quickActions {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 8px 0 22px;
+}
+
+.quickAction {
+  min-height: 54px;
+  border: 1px solid #d8d8d8;
+  background: #080808;
+  color: #f5f5f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px;
+  font-family: Georgia, "Times New Roman", serif;
+  cursor: pointer;
+  transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+}
+
+.quickAction:hover:not(:disabled),
+.choiceCard:hover:not(:disabled) {
+  background: #111;
+  transform: translateY(-2px);
+  border-color: #ffffff;
+}
+
+.quickAction:disabled,
+.choiceCard:disabled,
+.sendButton:disabled,
+.primaryButton:disabled,
+.secondaryButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.choiceCard {
+  width: 100%;
+  background: #080808;
+  border: 2px solid #d8d8d8;
+  color: #f5f5f5;
+  padding: 26px 18px;
+  font-size: 1rem;
+  line-height: 1.4;
+  text-align: center;
+  cursor: pointer;
+  border-radius: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+}
+
+.dividerWrap {
+  display: flex;
+  justify-content: center;
+  margin: 28px 0 22px;
+}
+
+.divider {
+  width: 230px;
+  height: 2px;
+  background: #d8d8d8;
+  border-radius: 999px;
+}
+
+.inputSection {
+  margin-bottom: 18px;
+}
+
+.inputBox {
+  border: 2px solid #d8d8d8;
+  display: grid;
+  grid-template-columns: 56px 1fr 56px;
+  align-items: center;
+  min-height: 72px;
+  padding: 0 8px;
+  background: #080808;
+}
+
+.inputIcon,
+.sendButton {
+  border: none;
+  background: transparent;
+  color: #9d9d9d;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.keyboardIcon {
+  font-size: 1.4rem;
+}
+
+.input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #ededed;
+  font-size: 1rem;
+  font-family: Georgia, "Times New Roman", serif;
+  text-align: center;
+}
+
+.input::placeholder {
+  color: #9d9d9d;
+  opacity: 1;
+}
+
+.threatPanel {
+  border: 1px solid #c83d3d;
+  background: #0d0505;
+  margin: 0 0 22px;
+  padding: 14px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 16px;
+  align-items: center;
+}
+
+.threatPanel div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.threatLabel {
+  color: #ff7373;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.threatPanel strong {
+  color: #fff;
+  font-size: 1.1rem;
+}
+
+.threatPanel small {
+  color: #bdbdbd;
+  line-height: 1.35;
+}
+
+.battlePanel {
+  border: 1px solid #333;
+  background: #070707;
+  color: #e5e5e5;
+  display: grid;
+  gap: 8px;
+  margin: 0 0 22px;
+  padding: 12px;
+  font-size: 0.9rem;
+}
+
+.battleStats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  text-align: center;
+}
+
+.battleDetail {
+  display: grid;
+  gap: 6px;
+  line-height: 1.4;
+}
+
+.battleDetail strong {
+  color: #fff;
+  font-size: 0.98rem;
+}
+
+.battleDetail span {
+  color: #cfcfcf;
+}
+
+.wishPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 22px 0;
+}
+
+.wishInput {
+  min-height: 64px;
+  border: 2px solid #d8d8d8;
+  background: #080808;
+  color: #ededed;
+  padding: 0 16px;
+  outline: none;
+  text-align: center;
+  font-size: 1rem;
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+.wishInput::placeholder {
+  color: #9d9d9d;
+}
+
+.primaryButton,
+.secondaryButton {
+  min-height: 54px;
+  border: 2px solid #d8d8d8;
+  background: #f5f5f5;
+  color: #050505;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.secondaryButton {
+  background: #080808;
+  color: #f5f5f5;
+}
+
+.skillsRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.skillsRow span {
+  border: 1px solid #333;
+  color: #d8d8d8;
+  background: #070707;
+  padding: 7px 10px;
+  font-size: 0.82rem;
+}
+
+@media (max-width: 480px) {
+  .content {
+    padding: 84px 14px 110px;
+  }
+
+  .logo {
+    font-size: 1.55rem;
+  }
+
+  .floorNumber {
+    font-size: 1.7rem;
+  }
+
+  .statsCard {
+    padding: 0 16px;
+    min-height: 76px;
+  }
+
+  .statItem {
+    font-size: 1.05rem;
+    gap: 6px;
+  }
+
+  .storyMode {
+    font-size: 1.35rem;
+  }
+
+  .locationTitle {
+    font-size: 1.1rem;
+    margin-bottom: 24px;
+  }
+
+  .storyText {
+    font-size: 0.95rem;
+  }
+
+  .metaGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .quickActions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .choiceCard {
+    padding: 22px 14px;
+    font-size: 0.95rem;
+  }
+
+  .inputBox {
+    min-height: 68px;
+  }
+}
