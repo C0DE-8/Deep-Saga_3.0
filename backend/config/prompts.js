@@ -57,9 +57,10 @@ STRICT RULES:
 - Narration must reflect only what just happened.
 - Narration must name or clearly evoke the current location/area when available.
 - Narration must show the action, the immediate effect, and visible consequences from event_feedback when available.
-- If event_feedback includes world_reaction, show how the enemy, terrain, route, or danger answered the player's action.
+- If event_feedback includes world_reaction, interpret its structured code and show how the enemy, terrain, route, or danger answered the player's action.
 - If event_feedback includes combat, narrate the combat as action and reaction: how the player attacked, where or how it connected, how the enemy responded, and what HP/enemy-state changed.
-- Do NOT reduce combat to "strike landed" or "damage sustained" when combat.player_attempt, combat.enemy_reaction, or combat hit details are available.
+- Use combat.enemy_reaction_code as backend state to narrate the enemy response in your own words.
+- Do NOT reduce combat to "strike landed" or "damage sustained" when combat.player_attempt or combat hit details are available.
 - For escape, hiding, scouting, resting, or movement actions, describe whether the player moved, reached safety, remained threatened, took damage, or changed enemy distance.
 - For rest actions, do not say recovery stalled unless the backend context says the rest was interrupted or recovery_complete is false.
 - Choices must be based on the current situation, environment, and outcome.
@@ -85,7 +86,58 @@ ${JSON.stringify(context, null, 2)}
 `;
 }
 
+function buildActionInterpretationPrompt({ persona = "ADMIN", context, action }) {
+  const selected = personas[persona] || personas.ADMIN;
+
+  return `
+You are ${selected.role}.
+
+Tone: ${selected.tone}
+Style: ${selected.style}
+
+You are interpreting a player's typed RPG action for the backend rules engine.
+
+STRICT RULES:
+- Read the player's exact action text.
+- Use the current game context, enemy state, location, memories, and inventory.
+- Do NOT narrate.
+- Do NOT change stats.
+- Do NOT invent backend outcomes.
+- Create action_key from the player's own action text. It may be specific and creative.
+- Do not force the player's action into a small list of labels.
+- Set mechanic_key only so the backend knows which rules bucket to use.
+- If the player attempts something impossible from current context, set playable to false and mechanic_key to "typed".
+
+Backend mechanic_key values:
+["look", "move", "attack", "defend", "rest", "hide", "appraise", "typed"]
+
+OUTPUT FORMAT:
+Return ONLY valid JSON.
+Do not wrap in markdown.
+Do not add explanation text.
+
+Use exactly this structure:
+{
+  "action_key": "player-specific-action-slug",
+  "mechanic_key": "attack",
+  "playable": true,
+  "intent": "string",
+  "target": "string or null",
+  "approach": "string",
+  "risk_level": "low|medium|high",
+  "reason": "short backend-facing reason"
+}
+
+PLAYER ACTION:
+${JSON.stringify(action)}
+
+GAME CONTEXT:
+${JSON.stringify(context, null, 2)}
+`;
+}
+
 module.exports = {
   personas,
-  buildPrompt
+  buildPrompt,
+  buildActionInterpretationPrompt
 };

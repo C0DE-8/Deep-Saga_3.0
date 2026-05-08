@@ -21,6 +21,7 @@ router.get("/profile", authenticateToken, async (req, res) => {
         p.name,
         p.current_race,
         p.current_title,
+        COALESCE(p.current_dungeon_level, 1) AS current_dungeon_level,
         p.level,
         p.exp,
         p.stat_points,
