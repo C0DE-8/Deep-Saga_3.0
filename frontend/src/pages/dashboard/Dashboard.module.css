@@ -225,36 +225,12 @@
   gap: 18px;
 }
 
-.quickActions {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
-  margin: 8px 0 22px;
-}
-
-.quickAction {
-  min-height: 54px;
-  border: 1px solid #d8d8d8;
-  background: #080808;
-  color: #f5f5f5;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 8px;
-  font-family: Georgia, "Times New Roman", serif;
-  cursor: pointer;
-  transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
-}
-
-.quickAction:hover:not(:disabled),
 .choiceCard:hover:not(:disabled) {
   background: #111;
   transform: translateY(-2px);
   border-color: #ffffff;
 }
 
-.quickAction:disabled,
 .choiceCard:disabled,
 .sendButton:disabled,
 .primaryButton:disabled,
@@ -368,6 +344,84 @@
 .threatPanel small {
   color: #bdbdbd;
   line-height: 1.35;
+}
+
+.threatMeta {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.threatMeta span {
+  border: 1px solid #3b2626;
+  color: #ffb0b0;
+  padding: 3px 6px;
+  font-size: 0.72rem;
+}
+
+.encounterPanel,
+.hazardPanel {
+  border: 1px solid #333;
+  background: #070707;
+  margin: 0 0 22px;
+  padding: 12px;
+}
+
+.panelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #d8d8d8;
+  margin-bottom: 10px;
+}
+
+.panelHeader span,
+.hazardPanel span {
+  color: #9fc9ff;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.enemyList {
+  display: grid;
+  gap: 8px;
+}
+
+.enemyRow {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  align-items: center;
+  border-top: 1px solid #1f1f1f;
+  padding-top: 8px;
+}
+
+.enemyRow div {
+  display: grid;
+  gap: 3px;
+}
+
+.enemyRow strong,
+.hazardPanel strong {
+  color: #fff;
+}
+
+.enemyRow span {
+  color: #bdbdbd;
+  font-size: 0.82rem;
+}
+
+.hazardPanel {
+  border-color: #665a25;
+}
+
+.hazardPanel p {
+  color: #cfc7a0;
+  line-height: 1.35;
+  margin: 8px 0 0;
 }
 
 .battlePanel {
@@ -494,10 +548,6 @@
   }
 
   .metaGrid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .quickActions {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 

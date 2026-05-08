@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
-import { ChevronUp, Flag, Heart, Image as ImageIcon, Plus, Send, Shield, Sparkles, Swords } from "lucide-react";
+import { ChevronUp, Flag, Image as ImageIcon, Plus, Send, Sparkles } from "lucide-react";
 import styles from "./Dashboard.module.css";
 import BottomNav from "../../components/bottomNav/BottomNav";
 import Header from "../../components/Header/header";
@@ -10,16 +10,6 @@ import { getCurrentGame, startGame } from "../../api/gameApi";
 import { getPlayerProfile, getPlayerSkills } from "../../api/playerApi";
 import { getRebirthStatus, restartRebirth, submitRebirthWish } from "../../api/rebirthApi";
 import { getCurrentWorld, resolveWorldAction, startWorld } from "../../api/worldApi";
-
-const QUICK_ACTIONS = [
-  { key: "look", label: "Look", icon: Sparkles },
-  { key: "move", label: "Move", icon: Send },
-  { key: "attack", label: "Attack", icon: Swords },
-  { key: "defend", label: "Defend", icon: Shield },
-  { key: "rest", label: "Rest", icon: Heart },
-  { key: "hide", label: "Hide", icon: ChevronUp },
-  { key: "appraise", label: "Appraise", icon: Flag }
-];
 
 const getErrorMessage = (error, fallback = "Something went wrong") => {
   return error?.response?.data?.message || error?.response?.data?.error || fallback;
@@ -53,6 +43,10 @@ const makeWorldMeta = (data) => {
     area: state.region_name || state.location || state.world_name || "World",
     time_of_day: state.era || state.phase || "world"
   };
+};
+
+const getEnemyMembers = (enemy) => {
+  return Array.isArray(enemy?.members) ? enemy.members.filter((member) => !member.is_defeated) : [];
 };
 
 const Dashboard = () => {
@@ -101,6 +95,10 @@ const Dashboard = () => {
         const gameData = await getCurrentGame();
         setScene(gameData.scene);
         setWorld(gameData.world);
+        setEnemy(gameData.enemy || null);
+        setBoss(gameData.boss || null);
+        setBattle(gameData.battle || gameData.event_feedback?.combat || null);
+        setEventFeedback(gameData.event_feedback || null);
         setMode((currentMode) => currentMode === "death" || currentMode === "ascension" ? currentMode : "dungeon");
         setStatusText((currentText) => currentText || "");
         return;
@@ -112,6 +110,10 @@ const Dashboard = () => {
         const worldData = await getCurrentWorld();
         setScene(makeSceneFromWorld(worldData));
         setWorld(makeWorldMeta(worldData));
+        setEnemy(null);
+        setBoss(null);
+        setBattle(null);
+        setEventFeedback(null);
         setMode("world");
         setStatusText("World Mode");
         return;
@@ -122,6 +124,10 @@ const Dashboard = () => {
       const started = await startGame();
       setScene(started.scene);
       setWorld(started.world);
+      setEnemy(started.enemy || null);
+      setBoss(started.boss || null);
+      setBattle(started.battle || started.event_feedback?.combat || null);
+      setEventFeedback(started.event_feedback || null);
       setMode("dungeon");
       setStatusText("");
     } catch (error) {
@@ -142,7 +148,7 @@ const Dashboard = () => {
 
     setEnemy(data.enemy || null);
     setBoss(data.boss || null);
-    setBattle(data.battle || null);
+    setBattle(data.battle || data.event_feedback?.combat || null);
     setEventFeedback(data.event_feedback || null);
 
     if (data.final_ascension) {
@@ -272,6 +278,8 @@ const Dashboard = () => {
   const floor = world?.floor ?? player?.current_floor ?? 1;
   const choices = Array.isArray(scene?.choices) ? scene.choices : [];
   const activeThreat = boss || enemy;
+  const enemyMembers = getEnemyMembers(activeThreat);
+  const biomeHazard = activeThreat?.biome_hazard;
   const healthPercent = useMemo(() => {
     const hp = Number(player?.hp || 0);
     const maxHp = Number(player?.max_hp || 1);
@@ -351,11 +359,46 @@ const Dashboard = () => {
             {activeThreat && (
               <section className={styles.threatPanel}>
                 <div>
-                  <span className={styles.threatLabel}>{boss ? "Boss" : "Enemy"}</span>
+                  <span className={styles.threatLabel}>
+                    {activeThreat.rank_tier || (boss ? "Boss" : "Enemy")}
+                  </span>
                   <strong>{activeThreat.name}</strong>
                   <small>{activeThreat.description}</small>
+                  <div className={styles.threatMeta}>
+                    {activeThreat.faction_key && <span>{activeThreat.faction_key}</span>}
+                    {activeThreat.elemental_affinity && <span>{activeThreat.elemental_affinity}</span>}
+                    {activeThreat.encounter_role && <span>{activeThreat.encounter_role}</span>}
+                  </div>
                 </div>
                 <span>{activeThreat.hp}/{activeThreat.max_hp}</span>
+              </section>
+            )}
+
+            {!!enemyMembers.length && (
+              <section className={styles.encounterPanel}>
+                <div className={styles.panelHeader}>
+                  <span>Encounter</span>
+                  <strong>{enemyMembers.length} active</strong>
+                </div>
+                <div className={styles.enemyList}>
+                  {enemyMembers.slice(0, 6).map((member) => (
+                    <div className={styles.enemyRow} key={member.id || `${member.enemy_key}-${member.position_index}`}>
+                      <div>
+                        <strong>{member.display_name || member.enemy_key}</strong>
+                        <span>{member.role_key || member.rank_tier || "enemy"}</span>
+                      </div>
+                      <span>{member.hp}/{member.max_hp}</span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {biomeHazard && (
+              <section className={styles.hazardPanel}>
+                <span>Hazard</span>
+                <strong>{biomeHazard.name || biomeHazard.hazard_key}</strong>
+                {biomeHazard.description && <p>{biomeHazard.description}</p>}
               </section>
             )}
 
@@ -365,13 +408,15 @@ const Dashboard = () => {
                   <>
                     <div className={styles.battleDetail}>
                       <strong>{eventFeedback.combat.player_attempt}</strong>
-                      <span>{eventFeedback.combat.hit_result}</span>
-                      {eventFeedback.combat.enemy_reaction && <span>{eventFeedback.combat.enemy_reaction}</span>}
+                      {eventFeedback.combat.target_member?.display_name && (
+                        <span>Targeted {eventFeedback.combat.target_member.display_name}</span>
+                      )}
+                      {eventFeedback.combat.enemy_reaction_code && <span>{eventFeedback.combat.enemy_reaction_code}</span>}
                     </div>
                     <div className={styles.battleStats}>
                       <span>Dealt {battle.player_damage_dealt ?? 0}</span>
                       <span>Took {battle.enemy_damage_dealt ?? 0}</span>
-                      <span>{battle.result_tag || "battle"}</span>
+                      <span>{battle.defeated ? "defeated" : `${battle.remaining_enemy_count ?? activeThreat?.count ?? 0} left`}</span>
                     </div>
                   </>
                 ) : (
@@ -410,25 +455,6 @@ const Dashboard = () => {
               </section>
             ) : (
               <>
-                <section className={styles.quickActions}>
-                  {QUICK_ACTIONS.map((quickAction) => {
-                    const ActionIcon = quickAction.icon;
-
-                    return (
-                      <button
-                        key={quickAction.key}
-                        className={styles.quickAction}
-                        type="button"
-                        onClick={() => mode === "world" ? submitWorldAction(quickAction.key) : submitDungeonAction(quickAction.key)}
-                        disabled={submitting}
-                      >
-                        <ActionIcon size={18} />
-                        <span>{quickAction.label}</span>
-                      </button>
-                    );
-                  })}
-                </section>
-
                 {!!choices.length && (
                   <section className={styles.choicesSection}>
                     {choices.map((choice, index) => (

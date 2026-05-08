@@ -7,6 +7,7 @@ const BottomNav = () => {
   const location = useLocation();
   const isProfile = location.pathname === "/profile";
   const isGame = location.pathname === "/dashboard" || location.pathname === "/game";
+  const isStory = location.pathname === "/story";
 
   return (
     <footer className={styles.footer}>
@@ -33,7 +34,12 @@ const BottomNav = () => {
         <BookOpen size={29} />
       </button>
 
-      <button className={styles.navItem} type="button" aria-label="Open journal">
+      <button
+        className={`${styles.navItem} ${isStory ? styles.active : ""}`}
+        type="button"
+        onClick={() => navigate("/story")}
+        aria-label="Open journal"
+      >
         <Newspaper size={27} />
       </button>
     </footer>

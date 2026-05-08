@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost
--- Generation Time: May 09, 2026 at 12:58 AM
+-- Generation Time: May 09, 2026 at 01:37 AM
 -- Server version: 10.4.28-MariaDB
 -- PHP Version: 8.2.4
 
@@ -1286,6 +1286,12 @@ CREATE TABLE `enemy_types` (
   `base_hp` int(11) NOT NULL DEFAULT 10,
   `base_attack` int(11) NOT NULL DEFAULT 2,
   `base_defense` int(11) NOT NULL DEFAULT 0,
+  `base_strength` int(11) NOT NULL DEFAULT 4,
+  `base_dexterity` int(11) NOT NULL DEFAULT 4,
+  `base_stamina` int(11) NOT NULL DEFAULT 4,
+  `base_intelligence` int(11) NOT NULL DEFAULT 2,
+  `base_wisdom` int(11) NOT NULL DEFAULT 2,
+  `base_charisma` int(11) NOT NULL DEFAULT 1,
   `xp_reward` int(11) NOT NULL DEFAULT 5,
   `elemental_affinity` varchar(80) DEFAULT NULL,
   `abilities_json` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`abilities_json`)),
@@ -1304,35 +1310,35 @@ CREATE TABLE `enemy_types` (
 -- Dumping data for table `enemy_types`
 --
 
-INSERT INTO `enemy_types` (`id`, `enemy_key`, `name`, `enemy_type`, `species`, `rank_tier`, `faction_key`, `preferred_biome`, `min_dungeon_level`, `max_dungeon_level`, `description`, `base_level`, `base_hp`, `base_attack`, `base_defense`, `xp_reward`, `elemental_affinity`, `abilities_json`, `behavior_json`, `mutation_json`, `ai_style_prompt`, `is_hidden`, `is_roaming`, `is_event_enemy`, `is_boss`, `created_at`, `updated_at`) VALUES
-(1, 'burrow_rat', 'Burrow Rat', 'beast', NULL, 'common', NULL, NULL, 1, 100, 'A fast scavenger that attacks in nervous packs.', 1, 12, 3, 0, 6, NULL, NULL, NULL, NULL, NULL, 0, 0, 0, 0, '2026-05-08 22:55:53', '2026-05-08 22:55:53'),
-(2, 'mire_goblin', 'Mire Goblin', 'goblin', NULL, 'common', NULL, NULL, 1, 100, 'A mud-slick ambusher with crude tools.', 8, 22, 5, 1, 12, NULL, NULL, NULL, NULL, NULL, 0, 0, 0, 0, '2026-05-08 22:55:53', '2026-05-08 22:55:53'),
-(3, 'ash_imp', 'Ash Imp', 'fiend', NULL, 'common', NULL, NULL, 1, 100, 'A cackling ember-born thing that bites and burns.', 18, 36, 8, 2, 22, NULL, NULL, NULL, NULL, NULL, 0, 0, 0, 0, '2026-05-08 22:55:53', '2026-05-08 22:55:53'),
-(4, 'frost_husk', 'Frost Husk', 'undead', NULL, 'common', NULL, NULL, 1, 100, 'A frozen corpse animated by dungeon cold.', 28, 52, 10, 4, 34, NULL, NULL, NULL, NULL, NULL, 0, 0, 0, 0, '2026-05-08 22:55:53', '2026-05-08 22:55:53'),
-(5, 'bone_knight', 'Bone Knight', 'undead', NULL, 'common', NULL, NULL, 1, 100, 'An armored skeleton that remembers war.', 38, 74, 14, 6, 50, NULL, NULL, NULL, NULL, NULL, 0, 0, 0, 0, '2026-05-08 22:55:53', '2026-05-08 22:55:53'),
-(6, 'storm_serpent', 'Storm Serpent', 'beast', NULL, 'common', NULL, NULL, 1, 100, 'A coiling predator carrying static in its scales.', 48, 96, 18, 8, 72, NULL, NULL, NULL, NULL, NULL, 0, 0, 0, 0, '2026-05-08 22:55:53', '2026-05-08 22:55:53'),
-(7, 'crystal_lurker', 'Crystal Lurker', 'construct', NULL, 'common', NULL, NULL, 1, 100, 'A refracting hunter that hides inside mineral walls.', 58, 125, 23, 10, 100, NULL, NULL, NULL, NULL, NULL, 0, 0, 0, 0, '2026-05-08 22:55:53', '2026-05-08 22:55:53'),
-(8, 'archive_shade', 'Archive Shade', 'spirit', NULL, 'common', NULL, NULL, 1, 100, 'A memory-eating shadow from sealed records.', 68, 160, 29, 13, 135, NULL, NULL, NULL, NULL, NULL, 0, 0, 0, 0, '2026-05-08 22:55:53', '2026-05-08 22:55:53'),
-(9, 'void_wraith', 'Void Wraith', 'void', NULL, 'common', NULL, NULL, 1, 100, 'A thing from the missing space between worlds.', 78, 210, 36, 16, 180, NULL, NULL, NULL, NULL, NULL, 0, 0, 0, 0, '2026-05-08 22:55:53', '2026-05-08 22:55:53'),
-(10, 'gateway_tyrant', 'Gateway Tyrant', 'boss', NULL, 'common', NULL, NULL, 1, 100, 'A gatekeeper made to deny the road home.', 90, 420, 52, 24, 500, NULL, NULL, NULL, NULL, NULL, 0, 0, 0, 1, '2026-05-08 22:55:53', '2026-05-08 22:55:53'),
-(11, 'cave_crawler', 'Cave Crawler', 'beast', 'arthropod', 'common', 'deep_scavengers', 'living caverns', 1, 10, 'A many-legged cave feeder that swarms wounded prey.', 1, 14, 3, 1, 7, 'earth', '[\"wall_cling\", \"pack_bite\"]', '{\"temperament\": \"skittish\", \"tactics\": \"surrounds weak targets\"}', '{\"scales_with\": \"group_size\"}', 'Describe fast movement across stone, clicking limbs, and pack pressure.', 0, 0, 0, 0, '2026-05-08 22:55:54', '2026-05-08 22:55:54'),
-(12, 'fungal_wolf', 'Fungal Wolf', 'beast', 'canid fungus host', 'uncommon', 'spore_pack', 'living caverns', 1, 12, 'A gaunt wolf colonized by luminous dungeon fungus.', 2, 18, 4, 1, 9, 'poison', '[\"spore_bite\", \"scent_track\"]', '{\"temperament\": \"predatory\", \"tactics\": \"harasses from blind angles\"}', '{\"mutation_pool\": [\"toxic_spores\", \"glowing_hide\"]}', 'Make it feel animal, sick, and hungry without turning it into a simple zombie.', 0, 1, 0, 0, '2026-05-08 22:55:54', '2026-05-08 22:55:54'),
-(13, 'scavenger_goblin', 'Scavenger Goblin', 'humanoid', 'goblin', 'common', 'mire_goblin_clans', 'living caverns', 1, 20, 'A low-ranked goblin looter that steals supplies and fights dirty.', 2, 16, 4, 1, 10, 'none', '[\"dirty_stab\", \"throw_scrap\", \"call_pack\"]', '{\"temperament\": \"cowardly clever\", \"tactics\": \"retreats when alone\"}', '{\"gear_variants\": [\"rust knife\", \"bone hook\", \"broken shield\"]}', 'Give it opportunistic intelligence and messy survival instincts.', 0, 1, 0, 0, '2026-05-08 22:55:54', '2026-05-08 22:55:54'),
-(14, 'blind_lurker', 'Blind Lurker', 'aberration', 'subterranean ambusher', 'rare', 'hidden_denizens', 'living caverns', 1, 15, 'A pale predator that hunts by vibration and waits in silent cracks.', 4, 32, 7, 2, 24, 'dark', '[\"vibration_sense\", \"ambush_lunge\"]', '{\"temperament\": \"patient\", \"tactics\": \"waits for noise then lunges\"}', '{\"mutation_pool\": [\"longer_claws\", \"silent_hide\"]}', 'Emphasize silence, vibration, and the fear of being sensed without being seen.', 1, 0, 0, 0, '2026-05-08 22:55:54', '2026-05-08 22:55:54'),
-(15, 'tunnel_spider', 'Tunnel Spider', 'beast', 'arachnid', 'common', 'webbed_nests', 'living caverns', 1, 10, 'A ceiling spider that drops into combat and binds prey.', 2, 15, 4, 0, 8, 'poison', '[\"web_snare\", \"venom_bite\"]', '{\"temperament\": \"territorial\", \"tactics\": \"immobilizes before biting\"}', '{\"mutation_pool\": [\"barbed_web\", \"acid_venom\"]}', 'Use vertical space and web hazards in narration.', 0, 0, 0, 0, '2026-05-08 22:55:54', '2026-05-08 22:55:54'),
-(16, 'corrupted_miner', 'Corrupted Miner', 'undead', 'lost worker', 'uncommon', 'fallen_expeditions', 'living caverns', 1, 18, 'A dead miner warped by dungeon ore and unfinished labor.', 3, 24, 5, 3, 14, 'earth', '[\"pickaxe_hook\", \"ore_skin\"]', '{\"temperament\": \"compulsive\", \"tactics\": \"breaks terrain and armor\"}', '{\"corruption\": \"ore_growth\"}', 'Make it tragic but dangerous, still repeating old mining motions.', 0, 0, 0, 0, '2026-05-08 22:55:54', '2026-05-08 22:55:54'),
-(17, 'hidden_stoneback', 'Hidden Stoneback', 'beast', 'armored predator', 'rare', 'hidden_denizens', 'living caverns', 1, 10, 'A camouflaged predator with a rock-like shell and crushing jaws.', 5, 42, 8, 5, 35, 'earth', '[\"stone_camouflage\", \"crushing_bite\"]', '{\"temperament\": \"still and sudden\", \"tactics\": \"waits as false terrain\"}', '{\"mutation_pool\": [\"crystal_shell\", \"moss_hide\"]}', 'Reveal it like the dungeon floor itself becomes hungry.', 1, 0, 0, 0, '2026-05-08 22:55:54', '2026-05-08 22:55:54'),
-(18, 'rat_king_swarm', 'Rat King Swarm', 'beast', 'swarm', 'elite', 'deep_scavengers', 'living caverns', 3, 12, 'A knotted mass of dungeon rats moving with shared instinct.', 6, 64, 9, 2, 48, 'disease', '[\"swarm_overrun\", \"gnawing_tide\"]', '{\"temperament\": \"frenzied collective\", \"tactics\": \"overwhelms isolated targets\"}', '{\"mutation_pool\": [\"plague_bite\", \"bone_nest\"]}', 'Narrate it as many bodies acting like one ugly mind.', 0, 1, 1, 0, '2026-05-08 22:55:54', '2026-05-08 22:55:54'),
-(19, 'spore_matriarch', 'Spore Matriarch', 'beast', 'fungal queen', 'mini_boss', 'spore_pack', 'living caverns', 5, 15, 'A bloated fungal alpha that commands infected beasts.', 9, 110, 14, 6, 100, 'poison', '[\"spore_cloud\", \"summon_fungal_host\", \"regeneration\"]', '{\"temperament\": \"territorial queen\", \"tactics\": \"controls space with spores\"}', '{\"phase_changes\": [\"bursting sacs\", \"rage bloom\"]}', 'Make the room feel infected and alive around it.', 0, 0, 1, 1, '2026-05-08 22:55:54', '2026-05-08 22:55:54'),
-(20, 'mire_shaman', 'Mire Shaman', 'humanoid', 'goblin mystic', 'elite', 'mire_goblin_clans', 'poison wetlands', 11, 25, 'A goblin ritualist that weaponizes rot and bad luck.', 14, 72, 15, 5, 70, 'poison', '[\"rot_hex\", \"mud_bind\", \"curse_totem\"]', '{\"temperament\": \"cruel and theatrical\", \"tactics\": \"weakens before sending allies\"}', '{\"totem_variants\": [\"rot\", \"fear\", \"blindness\"]}', 'Give it ritual intelligence and spiteful confidence.', 0, 0, 0, 0, '2026-05-08 22:55:54', '2026-05-08 22:55:54'),
-(21, 'ashbound_duelist', 'Ashbound Duelist', 'humanoid', 'burned swordsman', 'elite', 'ash_court', 'burned ruins', 21, 35, 'A fast ash-scarred fighter that treats battle like ceremony.', 25, 115, 24, 9, 130, 'fire', '[\"ember_dash\", \"riposte\", \"smoke_feint\"]', '{\"temperament\": \"proud\", \"tactics\": \"punishes careless attacks\"}', '{\"mutation_pool\": [\"cinder_blood\", \"blackflame_edge\"]}', 'Narrate formal violence, heat shimmer, and precise counters.', 0, 1, 0, 0, '2026-05-08 22:55:54', '2026-05-08 22:55:54'),
-(22, 'frostbound_jailer', 'Frostbound Jailer', 'undead', 'prison keeper', 'mini_boss', 'icebound_wardens', 'frozen vaults', 31, 45, 'A frozen warden dragging chains that freeze on contact.', 38, 190, 31, 14, 220, 'ice', '[\"chain_bind\", \"freezing_sentence\", \"cell_wall\"]', '{\"temperament\": \"merciless\", \"tactics\": \"locks movement down\"}', '{\"phase_changes\": [\"shattered chains\", \"warden oath\"]}', 'Make the enemy feel like a prison walking toward the player.', 0, 0, 1, 1, '2026-05-08 22:55:54', '2026-05-08 22:55:54'),
-(23, 'bone_standard_bearer', 'Bone Standard Bearer', 'undead', 'skeletal officer', 'elite', 'bone_legion', 'undead catacombs', 41, 55, 'A skeletal commander carrying a banner that strengthens nearby dead.', 45, 180, 34, 18, 260, 'death', '[\"rally_dead\", \"banner_guard\", \"bone_spear\"]', '{\"temperament\": \"disciplined\", \"tactics\": \"fights in formation\"}', '{\"formation_bonus\": \"undead allies gain pressure\"}', 'Narrate formation warfare and old battlefield discipline.', 0, 1, 0, 0, '2026-05-08 22:55:54', '2026-05-08 22:55:54'),
-(24, 'stormcaller_eel', 'Stormcaller Eel', 'beast', 'electric eel', 'rare', 'stormreef_hunters', 'storm ocean trenches', 51, 65, 'A long electric predator that vanishes through flooded cracks.', 55, 210, 42, 15, 330, 'lightning', '[\"shock_arc\", \"water_slip\", \"paralytic_bite\"]', '{\"temperament\": \"restless predator\", \"tactics\": \"uses water as weapon\"}', '{\"mutation_pool\": [\"forked_arc\", \"storm_eyes\"]}', 'Make water, light, and sudden electrical violence central.', 1, 1, 0, 0, '2026-05-08 22:55:54', '2026-05-08 22:55:54'),
-(25, 'crystal_mimic', 'Crystal Mimic', 'construct', 'living mineral', 'rare', 'crystal_hive', 'crystal mines', 61, 75, 'A beautiful crystal formation that unfolds into a killing shape.', 65, 280, 48, 24, 420, 'crystal', '[\"false_treasure\", \"shard_burst\", \"reflective_hide\"]', '{\"temperament\": \"alien patience\", \"tactics\": \"punishes greed and close inspection\"}', '{\"mutation_pool\": [\"prismatic_shell\", \"memory_reflection\"]}', 'Reveal it as treasure becoming anatomy.', 1, 0, 0, 0, '2026-05-08 22:55:54', '2026-05-08 22:55:54'),
-(26, 'index_wraith', 'Index Wraith', 'spirit', 'archive ghost', 'uncommon', 'silent_archive', 'cursed archive', 71, 85, 'A librarian spirit that attacks by stealing names and memories.', 75, 310, 55, 22, 520, 'psychic', '[\"name_theft\", \"memory_cut\", \"silence_field\"]', '{\"temperament\": \"coldly curious\", \"tactics\": \"isolates identity and memory\"}', '{\"mutation_pool\": [\"blank_face\", \"echo_voice\"]}', 'Make the threat intellectual, quiet, and violating.', 0, 0, 0, 0, '2026-05-08 22:55:54', '2026-05-08 22:55:54'),
-(27, 'void_siege_knight', 'Void Siege Knight', 'void', 'anti-world soldier', 'elite', 'void_host', 'void battlefield', 81, 95, 'A heavy knight built from absence and siege doctrine.', 86, 430, 70, 34, 760, 'void', '[\"gravity_crush\", \"null_guard\", \"breach_step\"]', '{\"temperament\": \"strategic annihilator\", \"tactics\": \"breaks defenses before closing\"}', '{\"mutation_pool\": [\"black_star_core\", \"null_blade\"]}', 'Make it feel tactical, silent, and impossibly heavy.', 0, 1, 0, 0, '2026-05-08 22:55:54', '2026-05-08 22:55:54'),
-(28, 'gate_eclipse_dragon', 'Gate Eclipse Dragon', 'dragon', 'gateway apex', 'world_boss', 'gateway_wardens', 'gateway beyond worlds', 96, 100, 'A world boss coiled around the final logic of return.', 100, 1800, 120, 60, 2500, 'void_fire', '[\"eclipse_breath\", \"gate_lock\", \"timeline_wound\"]', '{\"temperament\": \"ancient judge\", \"tactics\": \"tests every weakness learned across the dungeon\"}', '{\"phase_changes\": [\"sealed sun\", \"broken gate\", \"homeward denial\"]}', 'Narrate it as the final living gate between death, dungeon, and home.', 0, 0, 1, 1, '2026-05-08 22:55:54', '2026-05-08 22:55:54');
+INSERT INTO `enemy_types` (`id`, `enemy_key`, `name`, `enemy_type`, `species`, `rank_tier`, `faction_key`, `preferred_biome`, `min_dungeon_level`, `max_dungeon_level`, `description`, `base_level`, `base_hp`, `base_attack`, `base_defense`, `base_strength`, `base_dexterity`, `base_stamina`, `base_intelligence`, `base_wisdom`, `base_charisma`, `xp_reward`, `elemental_affinity`, `abilities_json`, `behavior_json`, `mutation_json`, `ai_style_prompt`, `is_hidden`, `is_roaming`, `is_event_enemy`, `is_boss`, `created_at`, `updated_at`) VALUES
+(1, 'burrow_rat', 'Burrow Rat', 'beast', NULL, 'common', NULL, NULL, 1, 100, 'A fast scavenger that attacks in nervous packs.', 1, 12, 3, 0, 4, 4, 4, 2, 2, 1, 6, NULL, NULL, NULL, NULL, NULL, 0, 0, 0, 0, '2026-05-08 22:55:53', '2026-05-08 22:55:53'),
+(2, 'mire_goblin', 'Mire Goblin', 'goblin', NULL, 'common', NULL, NULL, 1, 100, 'A mud-slick ambusher with crude tools.', 8, 22, 5, 1, 4, 4, 4, 2, 2, 1, 12, NULL, NULL, NULL, NULL, NULL, 0, 0, 0, 0, '2026-05-08 22:55:53', '2026-05-08 22:55:53'),
+(3, 'ash_imp', 'Ash Imp', 'fiend', NULL, 'common', NULL, NULL, 1, 100, 'A cackling ember-born thing that bites and burns.', 18, 36, 8, 2, 4, 4, 4, 2, 2, 1, 22, NULL, NULL, NULL, NULL, NULL, 0, 0, 0, 0, '2026-05-08 22:55:53', '2026-05-08 22:55:53'),
+(4, 'frost_husk', 'Frost Husk', 'undead', NULL, 'common', NULL, NULL, 1, 100, 'A frozen corpse animated by dungeon cold.', 28, 52, 10, 4, 5, 4, 6, 2, 2, 1, 34, NULL, NULL, NULL, NULL, NULL, 0, 0, 0, 0, '2026-05-08 22:55:53', '2026-05-08 23:14:49'),
+(5, 'bone_knight', 'Bone Knight', 'undead', NULL, 'common', NULL, NULL, 1, 100, 'An armored skeleton that remembers war.', 38, 74, 14, 6, 7, 5, 8, 2, 2, 1, 50, NULL, NULL, NULL, NULL, NULL, 0, 0, 0, 0, '2026-05-08 22:55:53', '2026-05-08 23:14:49'),
+(6, 'storm_serpent', 'Storm Serpent', 'beast', NULL, 'common', NULL, NULL, 1, 100, 'A coiling predator carrying static in its scales.', 48, 96, 18, 8, 9, 6, 10, 2, 2, 1, 72, NULL, NULL, NULL, NULL, NULL, 0, 0, 0, 0, '2026-05-08 22:55:53', '2026-05-08 23:14:49'),
+(7, 'crystal_lurker', 'Crystal Lurker', 'construct', NULL, 'common', NULL, NULL, 1, 100, 'A refracting hunter that hides inside mineral walls.', 58, 125, 23, 10, 12, 8, 13, 6, 2, 1, 100, NULL, NULL, NULL, NULL, NULL, 0, 0, 0, 0, '2026-05-08 22:55:53', '2026-05-08 23:14:49'),
+(8, 'archive_shade', 'Archive Shade', 'spirit', NULL, 'common', NULL, NULL, 1, 100, 'A memory-eating shadow from sealed records.', 68, 160, 29, 13, 15, 10, 16, 6, 2, 1, 135, NULL, NULL, NULL, NULL, NULL, 0, 0, 0, 0, '2026-05-08 22:55:53', '2026-05-08 23:14:49'),
+(9, 'void_wraith', 'Void Wraith', 'void', NULL, 'common', NULL, NULL, 1, 100, 'A thing from the missing space between worlds.', 78, 210, 36, 16, 18, 12, 21, 6, 2, 1, 180, NULL, NULL, NULL, NULL, NULL, 0, 0, 0, 0, '2026-05-08 22:55:53', '2026-05-08 23:14:49'),
+(10, 'gateway_tyrant', 'Gateway Tyrant', 'boss', NULL, 'common', NULL, NULL, 1, 100, 'A gatekeeper made to deny the road home.', 90, 420, 52, 24, 26, 18, 42, 2, 2, 1, 500, NULL, NULL, NULL, NULL, NULL, 0, 0, 0, 1, '2026-05-08 22:55:53', '2026-05-08 23:14:49'),
+(11, 'cave_crawler', 'Cave Crawler', 'beast', 'arthropod', 'common', 'deep_scavengers', 'living caverns', 1, 10, 'A many-legged cave feeder that swarms wounded prey.', 1, 14, 3, 1, 4, 4, 4, 2, 2, 3, 7, 'earth', '[\"wall_cling\", \"pack_bite\"]', '{\"temperament\": \"skittish\", \"tactics\": \"surrounds weak targets\"}', '{\"scales_with\": \"group_size\"}', 'Describe fast movement across stone, clicking limbs, and pack pressure.', 0, 0, 0, 0, '2026-05-08 22:55:54', '2026-05-08 23:14:49'),
+(12, 'fungal_wolf', 'Fungal Wolf', 'beast', 'canid fungus host', 'uncommon', 'spore_pack', 'living caverns', 1, 12, 'A gaunt wolf colonized by luminous dungeon fungus.', 2, 18, 4, 1, 4, 4, 4, 2, 2, 3, 9, 'poison', '[\"spore_bite\", \"scent_track\"]', '{\"temperament\": \"predatory\", \"tactics\": \"harasses from blind angles\"}', '{\"mutation_pool\": [\"toxic_spores\", \"glowing_hide\"]}', 'Make it feel animal, sick, and hungry without turning it into a simple zombie.', 0, 1, 0, 0, '2026-05-08 22:55:54', '2026-05-08 23:14:49'),
+(13, 'scavenger_goblin', 'Scavenger Goblin', 'humanoid', 'goblin', 'common', 'mire_goblin_clans', 'living caverns', 1, 20, 'A low-ranked goblin looter that steals supplies and fights dirty.', 2, 16, 4, 1, 4, 4, 4, 6, 2, 3, 10, 'none', '[\"dirty_stab\", \"throw_scrap\", \"call_pack\"]', '{\"temperament\": \"cowardly clever\", \"tactics\": \"retreats when alone\"}', '{\"gear_variants\": [\"rust knife\", \"bone hook\", \"broken shield\"]}', 'Give it opportunistic intelligence and messy survival instincts.', 0, 1, 0, 0, '2026-05-08 22:55:54', '2026-05-08 23:14:49'),
+(14, 'blind_lurker', 'Blind Lurker', 'aberration', 'subterranean ambusher', 'rare', 'hidden_denizens', 'living caverns', 1, 15, 'A pale predator that hunts by vibration and waits in silent cracks.', 4, 32, 7, 2, 4, 4, 4, 2, 2, 3, 24, 'dark', '[\"vibration_sense\", \"ambush_lunge\"]', '{\"temperament\": \"patient\", \"tactics\": \"waits for noise then lunges\"}', '{\"mutation_pool\": [\"longer_claws\", \"silent_hide\"]}', 'Emphasize silence, vibration, and the fear of being sensed without being seen.', 1, 0, 0, 0, '2026-05-08 22:55:54', '2026-05-08 23:14:49'),
+(15, 'tunnel_spider', 'Tunnel Spider', 'beast', 'arachnid', 'common', 'webbed_nests', 'living caverns', 1, 10, 'A ceiling spider that drops into combat and binds prey.', 2, 15, 4, 0, 4, 4, 4, 2, 2, 3, 8, 'poison', '[\"web_snare\", \"venom_bite\"]', '{\"temperament\": \"territorial\", \"tactics\": \"immobilizes before biting\"}', '{\"mutation_pool\": [\"barbed_web\", \"acid_venom\"]}', 'Use vertical space and web hazards in narration.', 0, 0, 0, 0, '2026-05-08 22:55:54', '2026-05-08 23:14:49'),
+(16, 'corrupted_miner', 'Corrupted Miner', 'undead', 'lost worker', 'uncommon', 'fallen_expeditions', 'living caverns', 1, 18, 'A dead miner warped by dungeon ore and unfinished labor.', 3, 24, 5, 3, 4, 4, 4, 2, 2, 3, 14, 'earth', '[\"pickaxe_hook\", \"ore_skin\"]', '{\"temperament\": \"compulsive\", \"tactics\": \"breaks terrain and armor\"}', '{\"corruption\": \"ore_growth\"}', 'Make it tragic but dangerous, still repeating old mining motions.', 0, 0, 0, 0, '2026-05-08 22:55:54', '2026-05-08 23:14:49'),
+(17, 'hidden_stoneback', 'Hidden Stoneback', 'beast', 'armored predator', 'rare', 'hidden_denizens', 'living caverns', 1, 10, 'A camouflaged predator with a rock-like shell and crushing jaws.', 5, 42, 8, 5, 4, 4, 5, 2, 2, 3, 35, 'earth', '[\"stone_camouflage\", \"crushing_bite\"]', '{\"temperament\": \"still and sudden\", \"tactics\": \"waits as false terrain\"}', '{\"mutation_pool\": [\"crystal_shell\", \"moss_hide\"]}', 'Reveal it like the dungeon floor itself becomes hungry.', 1, 0, 0, 0, '2026-05-08 22:55:54', '2026-05-08 23:14:49'),
+(18, 'rat_king_swarm', 'Rat King Swarm', 'beast', 'swarm', 'elite', 'deep_scavengers', 'living caverns', 3, 12, 'A knotted mass of dungeon rats moving with shared instinct.', 6, 64, 9, 2, 5, 4, 7, 2, 5, 3, 48, 'disease', '[\"swarm_overrun\", \"gnawing_tide\"]', '{\"temperament\": \"frenzied collective\", \"tactics\": \"overwhelms isolated targets\"}', '{\"mutation_pool\": [\"plague_bite\", \"bone_nest\"]}', 'Narrate it as many bodies acting like one ugly mind.', 0, 1, 1, 0, '2026-05-08 22:55:54', '2026-05-08 23:14:49'),
+(19, 'spore_matriarch', 'Spore Matriarch', 'beast', 'fungal queen', 'mini_boss', 'spore_pack', 'living caverns', 5, 15, 'A bloated fungal alpha that commands infected beasts.', 9, 110, 14, 6, 7, 5, 11, 2, 5, 6, 100, 'poison', '[\"spore_cloud\", \"summon_fungal_host\", \"regeneration\"]', '{\"temperament\": \"territorial queen\", \"tactics\": \"controls space with spores\"}', '{\"phase_changes\": [\"bursting sacs\", \"rage bloom\"]}', 'Make the room feel infected and alive around it.', 0, 0, 1, 1, '2026-05-08 22:55:54', '2026-05-08 23:14:49'),
+(20, 'mire_shaman', 'Mire Shaman', 'humanoid', 'goblin mystic', 'elite', 'mire_goblin_clans', 'poison wetlands', 11, 25, 'A goblin ritualist that weaponizes rot and bad luck.', 14, 72, 15, 5, 8, 5, 8, 6, 5, 3, 70, 'poison', '[\"rot_hex\", \"mud_bind\", \"curse_totem\"]', '{\"temperament\": \"cruel and theatrical\", \"tactics\": \"weakens before sending allies\"}', '{\"totem_variants\": [\"rot\", \"fear\", \"blindness\"]}', 'Give it ritual intelligence and spiteful confidence.', 0, 0, 0, 0, '2026-05-08 22:55:54', '2026-05-08 23:14:49'),
+(21, 'ashbound_duelist', 'Ashbound Duelist', 'humanoid', 'burned swordsman', 'elite', 'ash_court', 'burned ruins', 21, 35, 'A fast ash-scarred fighter that treats battle like ceremony.', 25, 115, 24, 9, 12, 8, 12, 6, 5, 3, 130, 'fire', '[\"ember_dash\", \"riposte\", \"smoke_feint\"]', '{\"temperament\": \"proud\", \"tactics\": \"punishes careless attacks\"}', '{\"mutation_pool\": [\"cinder_blood\", \"blackflame_edge\"]}', 'Narrate formal violence, heat shimmer, and precise counters.', 0, 1, 0, 0, '2026-05-08 22:55:54', '2026-05-08 23:14:49'),
+(22, 'frostbound_jailer', 'Frostbound Jailer', 'undead', 'prison keeper', 'mini_boss', 'icebound_wardens', 'frozen vaults', 31, 45, 'A frozen warden dragging chains that freeze on contact.', 38, 190, 31, 14, 16, 11, 19, 2, 5, 6, 220, 'ice', '[\"chain_bind\", \"freezing_sentence\", \"cell_wall\"]', '{\"temperament\": \"merciless\", \"tactics\": \"locks movement down\"}', '{\"phase_changes\": [\"shattered chains\", \"warden oath\"]}', 'Make the enemy feel like a prison walking toward the player.', 0, 0, 1, 1, '2026-05-08 22:55:54', '2026-05-08 23:14:49'),
+(23, 'bone_standard_bearer', 'Bone Standard Bearer', 'undead', 'skeletal officer', 'elite', 'bone_legion', 'undead catacombs', 41, 55, 'A skeletal commander carrying a banner that strengthens nearby dead.', 45, 180, 34, 18, 17, 12, 18, 2, 5, 3, 260, 'death', '[\"rally_dead\", \"banner_guard\", \"bone_spear\"]', '{\"temperament\": \"disciplined\", \"tactics\": \"fights in formation\"}', '{\"formation_bonus\": \"undead allies gain pressure\"}', 'Narrate formation warfare and old battlefield discipline.', 0, 1, 0, 0, '2026-05-08 22:55:54', '2026-05-08 23:14:49'),
+(24, 'stormcaller_eel', 'Stormcaller Eel', 'beast', 'electric eel', 'rare', 'stormreef_hunters', 'storm ocean trenches', 51, 65, 'A long electric predator that vanishes through flooded cracks.', 55, 210, 42, 15, 21, 14, 21, 2, 2, 3, 330, 'lightning', '[\"shock_arc\", \"water_slip\", \"paralytic_bite\"]', '{\"temperament\": \"restless predator\", \"tactics\": \"uses water as weapon\"}', '{\"mutation_pool\": [\"forked_arc\", \"storm_eyes\"]}', 'Make water, light, and sudden electrical violence central.', 1, 1, 0, 0, '2026-05-08 22:55:54', '2026-05-08 23:14:49'),
+(25, 'crystal_mimic', 'Crystal Mimic', 'construct', 'living mineral', 'rare', 'crystal_hive', 'crystal mines', 61, 75, 'A beautiful crystal formation that unfolds into a killing shape.', 65, 280, 48, 24, 24, 16, 28, 6, 2, 3, 420, 'crystal', '[\"false_treasure\", \"shard_burst\", \"reflective_hide\"]', '{\"temperament\": \"alien patience\", \"tactics\": \"punishes greed and close inspection\"}', '{\"mutation_pool\": [\"prismatic_shell\", \"memory_reflection\"]}', 'Reveal it as treasure becoming anatomy.', 1, 0, 0, 0, '2026-05-08 22:55:54', '2026-05-08 23:14:49'),
+(26, 'index_wraith', 'Index Wraith', 'spirit', 'archive ghost', 'uncommon', 'silent_archive', 'cursed archive', 71, 85, 'A librarian spirit that attacks by stealing names and memories.', 75, 310, 55, 22, 28, 19, 31, 6, 2, 3, 520, 'psychic', '[\"name_theft\", \"memory_cut\", \"silence_field\"]', '{\"temperament\": \"coldly curious\", \"tactics\": \"isolates identity and memory\"}', '{\"mutation_pool\": [\"blank_face\", \"echo_voice\"]}', 'Make the threat intellectual, quiet, and violating.', 0, 0, 0, 0, '2026-05-08 22:55:54', '2026-05-08 23:14:49'),
+(27, 'void_siege_knight', 'Void Siege Knight', 'void', 'anti-world soldier', 'elite', 'void_host', 'void battlefield', 81, 95, 'A heavy knight built from absence and siege doctrine.', 86, 430, 70, 34, 35, 24, 43, 6, 5, 3, 760, 'void', '[\"gravity_crush\", \"null_guard\", \"breach_step\"]', '{\"temperament\": \"strategic annihilator\", \"tactics\": \"breaks defenses before closing\"}', '{\"mutation_pool\": [\"black_star_core\", \"null_blade\"]}', 'Make it feel tactical, silent, and impossibly heavy.', 0, 1, 0, 0, '2026-05-08 22:55:54', '2026-05-08 23:14:49'),
+(28, 'gate_eclipse_dragon', 'Gate Eclipse Dragon', 'dragon', 'gateway apex', 'world_boss', 'gateway_wardens', 'gateway beyond worlds', 96, 100, 'A world boss coiled around the final logic of return.', 100, 1800, 120, 60, 60, 40, 180, 6, 5, 6, 2500, 'void_fire', '[\"eclipse_breath\", \"gate_lock\", \"timeline_wound\"]', '{\"temperament\": \"ancient judge\", \"tactics\": \"tests every weakness learned across the dungeon\"}', '{\"phase_changes\": [\"sealed sun\", \"broken gate\", \"homeward denial\"]}', 'Narrate it as the final living gate between death, dungeon, and home.', 0, 0, 1, 1, '2026-05-08 22:55:54', '2026-05-08 23:14:49');
 
 -- --------------------------------------------------------
 
@@ -11580,7 +11586,7 @@ CREATE TABLE `players` (
 --
 
 INSERT INTO `players` (`id`, `user_id`, `persona`, `name`, `current_race`, `current_title`, `current_dungeon_level`, `level`, `exp`, `stat_points`, `hp`, `max_hp`, `strength_stat`, `dexterity_stat`, `stamina_stat`, `intelligence_stat`, `charisma_stat`, `wisdom_stat`, `current_floor`, `current_area`, `life_number`, `is_alive`, `year_survived`, `day_survived`, `current_hour`, `created_at`, `updated_at`) VALUES
-(1, 1, 'ADMIN', 'light', 'Lost Soul', 'Unawakened', 1, 0, 0, 8, 40, 40, 4, 4, 4, 4, 4, 4, 1, 'Unknown Chamber', 1, 1, 1, 1, 0, '2026-05-08 21:35:30', '2026-05-08 21:35:30');
+(1, 1, 'ADMIN', 'light', 'Lost Soul', 'Unawakened', 1, 0, 0, 8, 25, 40, 4, 4, 4, 4, 4, 4, 1, 'Level 1: Rootburrow - Floor 1', 1, 1, 1, 1, 5, '2026-05-08 21:35:30', '2026-05-08 23:13:10');
 
 -- --------------------------------------------------------
 
@@ -11604,17 +11610,19 @@ CREATE TABLE `player_condition_stats` (
 
 INSERT INTO `player_condition_stats` (`id`, `player_id`, `stat_key`, `stat_value`, `metadata_json`, `created_at`, `updated_at`) VALUES
 (1, 1, 'enemies_killed', 0, NULL, '2026-05-08 21:35:30', '2026-05-08 21:35:30'),
-(2, 1, 'times_hidden', 0, NULL, '2026-05-08 21:35:30', '2026-05-08 21:35:30'),
+(2, 1, 'times_hidden', 1, NULL, '2026-05-08 21:35:30', '2026-05-08 23:03:51'),
 (3, 1, 'times_rested', 0, NULL, '2026-05-08 21:35:30', '2026-05-08 21:35:30'),
-(4, 1, 'times_appraised', 0, NULL, '2026-05-08 21:35:30', '2026-05-08 21:35:30'),
-(5, 1, 'typed_actions_count', 0, NULL, '2026-05-08 21:35:30', '2026-05-08 21:35:30'),
+(4, 1, 'times_appraised', 1, NULL, '2026-05-08 21:35:30', '2026-05-08 23:05:02'),
+(5, 1, 'typed_actions_count', 5, '{\"last_action\":\"Attempt a secondary precision strike on the Miner\'s compromised joint.\"}', '2026-05-08 21:35:30', '2026-05-08 23:13:10'),
 (6, 1, 'intent:precision_attack', 0, NULL, '2026-05-08 21:35:30', '2026-05-08 21:35:30'),
 (7, 1, 'intent:environment_attack', 0, NULL, '2026-05-08 21:35:30', '2026-05-08 21:35:30'),
-(8, 1, 'intent:hide', 0, NULL, '2026-05-08 21:35:30', '2026-05-08 21:35:30'),
+(8, 1, 'intent:hide', 1, '{\"last_action\":\"Attempt to stabilize footing to mitigate sound/stealth penalty.\",\"approach\":\"Static positioning and physical weight distribution adjustment.\",\"risk_level\":\"low\",\"resolution_type\":\"playable\"}', '2026-05-08 21:35:30', '2026-05-08 23:03:51'),
 (9, 1, 'intent:escape', 0, NULL, '2026-05-08 21:35:30', '2026-05-08 21:35:30'),
 (10, 1, 'intent:devour_remains', 0, NULL, '2026-05-08 21:35:30', '2026-05-08 21:35:30'),
 (11, 1, 'intent:social', 0, NULL, '2026-05-08 21:35:30', '2026-05-08 21:35:30'),
-(12, 1, 'risk:high', 0, NULL, '2026-05-08 21:35:30', '2026-05-08 21:35:30');
+(12, 1, 'risk:high', 1, '{\"last_intent\":\"unarmed_attack\",\"resolution_type\":\"playable\"}', '2026-05-08 21:35:30', '2026-05-08 23:08:48'),
+(174, 1, 'intent:appraise', 1, '{\"last_action\":\"what can i use to fight are they weapon around ??\",\"approach\":\"Visual sweep and structural analysis of environmental features.\",\"risk_level\":\"low\",\"resolution_type\":\"playable\"}', '2026-05-08 23:05:02', '2026-05-08 23:05:02'),
+(212, 1, 'intent:unarmed_attack', 3, '{\"last_action\":\"Attempt a secondary precision strike on the Miner\'s compromised joint.\",\"approach\":\"High-precision strike directed at known anatomical vulnerability.\",\"risk_level\":\"medium\",\"resolution_type\":\"playable\"}', '2026-05-08 23:08:48', '2026-05-08 23:13:10');
 
 -- --------------------------------------------------------
 
@@ -11644,6 +11652,13 @@ CREATE TABLE `player_encounters` (
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+--
+-- Dumping data for table `player_encounters`
+--
+
+INSERT INTO `player_encounters` (`id`, `player_id`, `dungeon_floor_id`, `encounter_type`, `faction_key`, `formation_key`, `formation_json`, `synergy_json`, `biome_hazard_json`, `environment_effect_json`, `ai_directive_json`, `phase`, `difficulty_rating`, `is_hidden`, `is_roaming`, `is_resolved`, `resolved_at`, `created_at`, `updated_at`) VALUES
+(1, 1, 1, 'ambient', 'fallen_expeditions', 'formation_with_roles', '{\"group_logic\": \"formation_with_roles\", \"can_mix_with_faction\": \"fallen_expeditions\"}', '{\"faction_key\":\"fallen_expeditions\",\"role\":\"ambient\",\"group_size\":1}', '{\"hazard_key\":\"loose_stone_echoes\",\"name\":\"Loose Stone Echoes\",\"description\":\"Unstable stone carries sound farther than expected.\",\"effect\":{\"stealth_penalty\":1,\"hidden_trigger_bonus\":1}}', '{\"stealth_penalty\":1,\"hidden_trigger_bonus\":1}', '{\"enemy_style\":\"Make it tragic but dangerous, still repeating old mining motions.\",\"behavior\":{\"temperament\":\"compulsive\",\"tactics\":\"breaks terrain and armor\"},\"abilities\":[\"pickaxe_hook\",\"ore_skin\"]}', 1, 11, 0, 0, 0, NULL, '2026-05-08 23:00:52', '2026-05-08 23:00:52');
+
 -- --------------------------------------------------------
 
 --
@@ -11664,6 +11679,12 @@ CREATE TABLE `player_encounter_enemies` (
   `max_hp` int(11) NOT NULL,
   `attack_value` int(11) NOT NULL,
   `defense_value` int(11) NOT NULL,
+  `strength_stat` int(11) NOT NULL DEFAULT 4,
+  `dexterity_stat` int(11) NOT NULL DEFAULT 4,
+  `stamina_stat` int(11) NOT NULL DEFAULT 4,
+  `intelligence_stat` int(11) NOT NULL DEFAULT 2,
+  `wisdom_stat` int(11) NOT NULL DEFAULT 2,
+  `charisma_stat` int(11) NOT NULL DEFAULT 1,
   `phase` int(11) NOT NULL DEFAULT 1,
   `status_json` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`status_json`)),
   `resistance_json` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`resistance_json`)),
@@ -11677,6 +11698,13 @@ CREATE TABLE `player_encounter_enemies` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `player_encounter_enemies`
+--
+
+INSERT INTO `player_encounter_enemies` (`id`, `encounter_id`, `enemy_type_id`, `enemy_key`, `display_name`, `role_key`, `rank_tier`, `faction_key`, `position_index`, `current_hp`, `max_hp`, `attack_value`, `defense_value`, `strength_stat`, `dexterity_stat`, `stamina_stat`, `intelligence_stat`, `wisdom_stat`, `charisma_stat`, `phase`, `status_json`, `resistance_json`, `weakness_json`, `ability_state_json`, `mutation_state_json`, `ai_behavior_json`, `is_summoned`, `is_defeated`, `defeated_at`, `created_at`, `updated_at`) VALUES
+(1, 1, 16, 'corrupted_miner', 'Corrupted Miner', 'leader', 'uncommon', 'fallen_expeditions', 1, 36, 57, 7, 3, 4, 4, 4, 2, 2, 3, 1, '[]', '{\"element\":\"earth\"}', '{\"inferred_from_biome\":\"living caverns\"}', '[\"pickaxe_hook\", \"ore_skin\"]', '{\"corruption\": \"ore_growth\"}', '{\"temperament\": \"compulsive\", \"tactics\": \"breaks terrain and armor\"}', 0, 0, NULL, '2026-05-08 23:00:52', '2026-05-08 23:14:49');
 
 -- --------------------------------------------------------
 
@@ -11751,6 +11779,13 @@ CREATE TABLE `player_floor_states` (
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+--
+-- Dumping data for table `player_floor_states`
+--
+
+INSERT INTO `player_floor_states` (`id`, `player_id`, `dungeon_floor_id`, `active_enemy_type_id`, `active_encounter_id`, `enemy_count`, `enemy_hp`, `is_boss`, `biome_hazard_json`, `encounter_seed`, `last_event_json`, `created_at`, `updated_at`) VALUES
+(1, 1, 1, 16, 1, 1, 36, 0, '{\"hazard_key\":\"loose_stone_echoes\",\"name\":\"Loose Stone Echoes\",\"description\":\"Unstable stone carries sound farther than expected.\",\"effect\":{\"stealth_penalty\":1,\"hidden_trigger_bonus\":1}}', '1:1:1778281252860', '{\"player_action\":\"Attempt a secondary precision strike on the Miner\'s compromised joint.\",\"action_key\":\"unarmed_attack\",\"mechanic_key\":\"attack\",\"interpretation\":{\"action_key\":\"unarmed_attack\",\"mechanic_key\":\"attack\",\"playable\":true,\"intent\":\"Capitalize on previous damage to further degrade structural integrity of target\'s limb.\",\"target\":\"Corrupted Miner\",\"approach\":\"High-precision strike directed at known anatomical vulnerability.\",\"risk_level\":\"medium\",\"reason\":\"Repeated focused strikes increase probability of critical trauma, bypassing ore_skin damage reduction.\"},\"message\":\"action_resolved\",\"combat\":{\"player_attempt\":\"Attempt a secondary precision strike on the Miner\'s compromised joint.\",\"target_member\":{\"id\":1,\"enemy_type_id\":16,\"enemy_key\":\"corrupted_miner\",\"display_name\":\"Corrupted Miner\",\"role_key\":\"leader\",\"rank_tier\":\"uncommon\",\"faction_key\":\"fallen_expeditions\",\"position_index\":1,\"hp\":43,\"max_hp\":57,\"attack\":7,\"defense\":3,\"phase\":1,\"statuses\":[],\"resistances\":{\"element\":\"earth\"},\"weaknesses\":{\"inferred_from_biome\":\"living caverns\"},\"abilities\":[\"pickaxe_hook\",\"ore_skin\"],\"mutations\":{\"corruption\":\"ore_growth\"},\"behavior\":{\"temperament\":\"compulsive\",\"tactics\":\"breaks terrain and armor\"},\"is_summoned\":0,\"is_defeated\":0},\"enemy_reaction_code\":\"counterattack\",\"player_damage_dealt\":7,\"enemy_damage_dealt\":5,\"remaining_enemy_count\":1,\"defeated\":false}}', '2026-05-08 23:00:52', '2026-05-08 23:13:10');
+
 -- --------------------------------------------------------
 
 --
@@ -11785,6 +11820,17 @@ CREATE TABLE `player_memories` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+--
+-- Dumping data for table `player_memories`
+--
+
+INSERT INTO `player_memories` (`id`, `player_id`, `memory_type`, `summary`, `importance`, `metadata_json`, `created_at`) VALUES
+(1, 1, 'action', 'Reduce sound production to bypass biome-specific detection trigger.', 1, '{\"action_key\":\"stabilize-footing-stealth\",\"mechanic_key\":\"hide\",\"player_action\":\"Attempt to stabilize footing to mitigate sound/stealth penalty.\",\"interpretation\":{\"action_key\":\"stabilize-footing-stealth\",\"mechanic_key\":\"hide\",\"playable\":true,\"intent\":\"Reduce sound production to bypass biome-specific detection trigger.\",\"target\":null,\"approach\":\"Static positioning and physical weight distribution adjustment.\",\"risk_level\":\"low\",\"reason\":\"Player is attempting to counteract the \'loose_stone_echoes\' hazard modifier; success relies on dexterity check vs biome sound threshold.\"},\"location\":{\"level\":1,\"floor\":1,\"name\":\"Level 1: Rootburrow - Floor 1\",\"level_name\":\"Level 1: Rootburrow\",\"biome\":\"living caverns\",\"description\":\"Floor 1 of Level 1: Rootburrow. Threats scale toward the boss gate.\",\"is_boss_floor\":0,\"difficulty_rating\":11,\"gateway_name\":\"Gateway 1\"},\"enemy\":null}', '2026-05-08 23:03:51'),
+(2, 1, 'action', 'Assess immediate surroundings for improvised weaponry or combat utility items.', 1, '{\"action_key\":\"environment-resource-scan\",\"mechanic_key\":\"appraise\",\"player_action\":\"what can i use to fight are they weapon around ??\",\"interpretation\":{\"action_key\":\"environment-resource-scan\",\"mechanic_key\":\"appraise\",\"playable\":true,\"intent\":\"Assess immediate surroundings for improvised weaponry or combat utility items.\",\"target\":\"Rootburrow Floor 1 terrain\",\"approach\":\"Visual sweep and structural analysis of environmental features.\",\"risk_level\":\"low\",\"reason\":\"Player lacks inventory; environmental appraisal is required to determine potential equipment acquisition.\"},\"location\":{\"level\":1,\"floor\":1,\"name\":\"Level 1: Rootburrow - Floor 1\",\"level_name\":\"Level 1: Rootburrow\",\"biome\":\"living caverns\",\"description\":\"Floor 1 of Level 1: Rootburrow. Threats scale toward the boss gate.\",\"is_boss_floor\":0,\"difficulty_rating\":11,\"gateway_name\":\"Gateway 1\"},\"enemy\":null}', '2026-05-08 23:05:02'),
+(3, 1, 'action', 'Execute high-commitment, aggressive melee engagement against primary threat.', 1, '{\"action_key\":\"unarmed_attack\",\"mechanic_key\":\"attack\",\"player_action\":\"let go fist i want all out using my fist\",\"interpretation\":{\"action_key\":\"unarmed_attack\",\"mechanic_key\":\"attack\",\"playable\":true,\"intent\":\"Execute high-commitment, aggressive melee engagement against primary threat.\",\"target\":\"Corrupted Miner\",\"approach\":\"Abandoning defensive posture in favor of unshielded, high-velocity strikes.\",\"risk_level\":\"high\",\"reason\":\"Player prioritizes offensive output; removes all damage mitigation variables to maximize strike impact.\"},\"location\":{\"level\":1,\"floor\":1,\"name\":\"Level 1: Rootburrow - Floor 1\",\"level_name\":\"Level 1: Rootburrow\",\"biome\":\"living caverns\",\"description\":\"Floor 1 of Level 1: Rootburrow. Threats scale toward the boss gate.\",\"is_boss_floor\":0,\"difficulty_rating\":11,\"gateway_name\":\"Gateway 1\"},\"enemy\":null}', '2026-05-08 23:08:48'),
+(4, 1, 'action', 'Target vulnerable skeletal/joint structures to bypass armor.', 1, '{\"action_key\":\"unarmed_attack\",\"mechanic_key\":\"attack\",\"player_action\":\"Attempt precision strike at target\'s exposed joints.\",\"interpretation\":{\"action_key\":\"unarmed_attack\",\"mechanic_key\":\"attack\",\"playable\":true,\"intent\":\"Target vulnerable skeletal/joint structures to bypass armor.\",\"target\":\"Corrupted Miner\",\"approach\":\"High-accuracy, localized strike to anatomical weak points.\",\"risk_level\":\"medium\",\"reason\":\"Dexterity-based precision strike chosen to circumvent target\'s ore_skin defense.\"},\"location\":{\"level\":1,\"floor\":1,\"name\":\"Level 1: Rootburrow - Floor 1\",\"level_name\":\"Level 1: Rootburrow\",\"biome\":\"living caverns\",\"description\":\"Floor 1 of Level 1: Rootburrow. Threats scale toward the boss gate.\",\"is_boss_floor\":0,\"difficulty_rating\":11,\"gateway_name\":\"Gateway 1\"},\"enemy\":null}', '2026-05-08 23:10:05'),
+(5, 1, 'action', 'Capitalize on previous damage to further degrade structural integrity of target\'s limb.', 1, '{\"action_key\":\"unarmed_attack\",\"mechanic_key\":\"attack\",\"player_action\":\"Attempt a secondary precision strike on the Miner\'s compromised joint.\",\"interpretation\":{\"action_key\":\"unarmed_attack\",\"mechanic_key\":\"attack\",\"playable\":true,\"intent\":\"Capitalize on previous damage to further degrade structural integrity of target\'s limb.\",\"target\":\"Corrupted Miner\",\"approach\":\"High-precision strike directed at known anatomical vulnerability.\",\"risk_level\":\"medium\",\"reason\":\"Repeated focused strikes increase probability of critical trauma, bypassing ore_skin damage reduction.\"},\"location\":{\"level\":1,\"floor\":1,\"name\":\"Level 1: Rootburrow - Floor 1\",\"level_name\":\"Level 1: Rootburrow\",\"biome\":\"living caverns\",\"description\":\"Floor 1 of Level 1: Rootburrow. Threats scale toward the boss gate.\",\"is_boss_floor\":0,\"difficulty_rating\":11,\"gateway_name\":\"Gateway 1\"},\"enemy\":null}', '2026-05-08 23:13:10');
+
 -- --------------------------------------------------------
 
 --
@@ -11797,6 +11843,58 @@ CREATE TABLE `player_skills` (
   `skill_id` int(11) NOT NULL,
   `is_active` tinyint(1) DEFAULT 0,
   `unlocked_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `player_skills`
+--
+
+INSERT INTO `player_skills` (`id`, `player_id`, `skill_id`, `is_active`, `unlocked_at`) VALUES
+(1, 1, 1, 0, '2026-05-08 23:13:10');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `player_story_chapters`
+--
+
+CREATE TABLE `player_story_chapters` (
+  `id` int(11) NOT NULL,
+  `player_id` int(11) NOT NULL,
+  `chapter_number` int(11) NOT NULL,
+  `title` varchar(180) NOT NULL,
+  `summary` text DEFAULT NULL,
+  `opening_event_id` int(11) DEFAULT NULL,
+  `closing_event_id` int(11) DEFAULT NULL,
+  `importance` int(11) NOT NULL DEFAULT 1,
+  `started_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `closed_at` timestamp NULL DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `player_story_events`
+--
+
+CREATE TABLE `player_story_events` (
+  `id` int(11) NOT NULL,
+  `player_id` int(11) NOT NULL,
+  `event_type` enum('combat','boss_fight','discovery','death','injury','major_choice','relationship','betrayal','awakening','skill_evolution','rare_enemy','reincarnation','world_event','chapter') NOT NULL DEFAULT 'combat',
+  `chapter_number` int(11) NOT NULL DEFAULT 1,
+  `title` varchar(180) NOT NULL,
+  `summary` text DEFAULT NULL,
+  `narration` mediumtext NOT NULL,
+  `location_json` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`location_json`)),
+  `combat_json` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`combat_json`)),
+  `emotional_tags_json` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`emotional_tags_json`)),
+  `identity_tags_json` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`identity_tags_json`)),
+  `importance` int(11) NOT NULL DEFAULT 1,
+  `is_legendary` tinyint(1) DEFAULT 0,
+  `occurred_year` int(11) DEFAULT 1,
+  `occurred_day` int(11) DEFAULT 1,
+  `occurred_hour` int(11) DEFAULT 0,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -11821,6 +11919,22 @@ CREATE TABLE `skills` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `skills`
+--
+
+INSERT INTO `skills` (`id`, `skill_key`, `name`, `description`, `skill_type`, `unlock_type`, `required_level`, `condition_stat_key`, `condition_threshold`, `effect_json`, `is_dynamic`, `source_pattern`, `created_at`, `updated_at`) VALUES
+(1, 'unarmed_fist_initiate', 'Fist Initiate', 'Your body starts remembering how to turn bare hands into weapons.', 'passive', 'condition', NULL, 'intent:unarmed_attack', 3, '{\"unarmed_damage_bonus\": 1, \"body_weapon_control\": 1}', 0, 'repeated_unarmed_attacks', '2026-05-08 23:08:24', '2026-05-08 23:08:24'),
+(2, 'unarmed_fist_master', 'Fist Master', 'A combat skill born from repeatedly fighting with your bare hands.', 'passive', 'condition', NULL, 'intent:unarmed_attack', 8, '{\"unarmed_damage_bonus\": 3, \"counter_chance_bonus\": 1, \"weaponless_penalty_reduction\": 1}', 0, 'repeated_unarmed_attacks', '2026-05-08 23:08:24', '2026-05-08 23:08:24'),
+(3, 'unarmed_iron_knuckles', 'Iron Knuckles', 'Repeated impact hardens your hands against pain, bone, and armor.', 'passive', 'condition', NULL, 'intent:unarmed_attack', 14, '{\"unarmed_damage_bonus\": 5, \"armor_break_bonus\": 1, \"self_injury_resistance\": 2}', 0, 'repeated_unarmed_attacks', '2026-05-08 23:08:24', '2026-05-08 23:08:24'),
+(4, 'grappler_clinch_control', 'Clinch Control', 'A close-range control skill formed from grabbing, pinning, and wrestling enemies.', 'passive', 'condition', NULL, 'intent:grapple', 5, '{\"grapple_bonus\": 2, \"enemy_escape_penalty\": 1}', 0, 'repeated_grappling', '2026-05-08 23:08:24', '2026-05-08 23:08:24'),
+(5, 'kicker_breaking_step', 'Breaking Step', 'Your kicks learn to interrupt movement and punish unstable enemies.', 'passive', 'condition', NULL, 'intent:kick_attack', 5, '{\"kick_damage_bonus\": 2, \"stagger_bonus\": 1}', 0, 'repeated_kick_attacks', '2026-05-08 23:08:24', '2026-05-08 23:08:24'),
+(6, 'dirty_fighter', 'Dirty Fighter', 'A survival combat style formed from biting, gouging, throwing dust, and doing whatever keeps you alive.', 'passive', 'condition', NULL, 'intent:dirty_fighting', 5, '{\"improvised_damage_bonus\": 2, \"enemy_focus_penalty\": 1}', 0, 'repeated_dirty_fighting', '2026-05-08 23:08:24', '2026-05-08 23:08:24'),
+(7, 'bone_guard', 'Bone Guard', 'Defensive instinct formed from repeatedly bracing through enemy attacks.', 'passive', 'condition', NULL, 'intent:defensive_guard', 5, '{\"guard_damage_reduction\": 2, \"counter_setup_bonus\": 1}', 0, 'repeated_guarding', '2026-05-08 23:08:24', '2026-05-08 23:08:24'),
+(8, 'bloodied_resolve', 'Bloodied Resolve', 'A reckless survival skill formed from taking high-risk actions while wounded.', 'passive', 'condition', NULL, 'risk:high', 6, '{\"low_hp_damage_bonus\": 2, \"fear_resistance\": 1}', 0, 'repeated_high_risk_survival', '2026-05-08 23:08:24', '2026-05-08 23:08:24'),
+(9, 'weakpoint_reader_seed', 'Weakpoint Reader', 'A precision skill formed from repeatedly aiming at joints, eyes, throats, cores, or other vulnerable points.', 'passive', 'condition', NULL, 'intent:precision_attack', 4, '{\"precision_damage_bonus\": 1, \"weakpoint_accuracy_bonus\": 1}', 0, 'repeated_precision_attacks', '2026-05-08 23:08:24', '2026-05-08 23:08:24'),
+(10, 'room_weaponizer_seed', 'Room Weaponizer', 'A tactical skill formed from repeatedly using walls, stones, webs, fire, ledges, or terrain as weapons.', 'passive', 'condition', NULL, 'intent:environment_attack', 4, '{\"environment_damage_bonus\": 2, \"hazard_control_bonus\": 1}', 0, 'repeated_environment_attacks', '2026-05-08 23:08:24', '2026-05-08 23:08:24');
 
 -- --------------------------------------------------------
 
@@ -11987,6 +12101,25 @@ ALTER TABLE `player_skills`
   ADD KEY `idx_player_skills_player_id` (`player_id`);
 
 --
+-- Indexes for table `player_story_chapters`
+--
+ALTER TABLE `player_story_chapters`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `unique_player_story_chapter` (`player_id`,`chapter_number`),
+  ADD KEY `opening_event_id` (`opening_event_id`),
+  ADD KEY `closing_event_id` (`closing_event_id`),
+  ADD KEY `idx_player_story_chapters_player` (`player_id`,`chapter_number`);
+
+--
+-- Indexes for table `player_story_events`
+--
+ALTER TABLE `player_story_events`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_player_story_events_player_time` (`player_id`,`occurred_year`,`occurred_day`,`occurred_hour`,`id`),
+  ADD KEY `idx_player_story_events_player_importance` (`player_id`,`importance`,`created_at`),
+  ADD KEY `idx_player_story_events_type` (`event_type`);
+
+--
 -- Indexes for table `skills`
 --
 ALTER TABLE `skills`
@@ -12052,19 +12185,19 @@ ALTER TABLE `players`
 -- AUTO_INCREMENT for table `player_condition_stats`
 --
 ALTER TABLE `player_condition_stats`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=85;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=314;
 
 --
 -- AUTO_INCREMENT for table `player_encounters`
 --
 ALTER TABLE `player_encounters`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT for table `player_encounter_enemies`
 --
 ALTER TABLE `player_encounter_enemies`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT for table `player_encounter_events`
@@ -12088,7 +12221,7 @@ ALTER TABLE `player_faction_reputation`
 -- AUTO_INCREMENT for table `player_floor_states`
 --
 ALTER TABLE `player_floor_states`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT for table `player_inventory`
@@ -12100,19 +12233,31 @@ ALTER TABLE `player_inventory`
 -- AUTO_INCREMENT for table `player_memories`
 --
 ALTER TABLE `player_memories`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
 -- AUTO_INCREMENT for table `player_skills`
 --
 ALTER TABLE `player_skills`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+
+--
+-- AUTO_INCREMENT for table `player_story_chapters`
+--
+ALTER TABLE `player_story_chapters`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `player_story_events`
+--
+ALTER TABLE `player_story_events`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `skills`
 --
 ALTER TABLE `skills`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
 
 --
 -- AUTO_INCREMENT for table `users`
@@ -12215,6 +12360,20 @@ ALTER TABLE `player_memories`
 ALTER TABLE `player_skills`
   ADD CONSTRAINT `player_skills_ibfk_1` FOREIGN KEY (`player_id`) REFERENCES `players` (`id`) ON DELETE CASCADE,
   ADD CONSTRAINT `player_skills_ibfk_2` FOREIGN KEY (`skill_id`) REFERENCES `skills` (`id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `player_story_chapters`
+--
+ALTER TABLE `player_story_chapters`
+  ADD CONSTRAINT `player_story_chapters_ibfk_1` FOREIGN KEY (`player_id`) REFERENCES `players` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `player_story_chapters_ibfk_2` FOREIGN KEY (`opening_event_id`) REFERENCES `player_story_events` (`id`) ON DELETE SET NULL,
+  ADD CONSTRAINT `player_story_chapters_ibfk_3` FOREIGN KEY (`closing_event_id`) REFERENCES `player_story_events` (`id`) ON DELETE SET NULL;
+
+--
+-- Constraints for table `player_story_events`
+--
+ALTER TABLE `player_story_events`
+  ADD CONSTRAINT `player_story_events_ibfk_1` FOREIGN KEY (`player_id`) REFERENCES `players` (`id`) ON DELETE CASCADE;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

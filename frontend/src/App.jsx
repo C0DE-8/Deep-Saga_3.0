@@ -4,6 +4,7 @@ import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
 import Dashboard from "./pages/dashboard/Dashboard";
 import Profile from "./pages/profile/Profile";
+import Story from "./pages/story/Story";
 import NotFound from "./pages/not-found/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
 import styles from "./App.module.css";
@@ -68,6 +69,15 @@ function App() {
             element={
               <ProtectedRoute>
                 <Profile />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/story"
+            element={
+              <ProtectedRoute>
+                <Story />
               </ProtectedRoute>
             }
           />
