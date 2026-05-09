@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
-import { ChevronUp, Flag, Image as ImageIcon, Plus, Send, Sparkles } from "lucide-react";
+import { ChevronUp, Flag, Hourglass, Image as ImageIcon, Plus, Send, Sparkles } from "lucide-react";
 import styles from "./Dashboard.module.css";
 import BottomNav from "../../components/bottomNav/BottomNav";
 import Header from "../../components/Header/header";
@@ -62,6 +62,7 @@ const Dashboard = () => {
   const [actionText, setActionText] = useState("");
   const [wishText, setWishText] = useState("");
   const [statusText, setStatusText] = useState("");
+  const [canRebirthWish, setCanRebirthWish] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
@@ -76,9 +77,17 @@ const Dashboard = () => {
     if (profileData.status === "fulfilled") setPlayer(profileData.value.player);
     if (skillData.status === "fulfilled") setSkills(skillData.value.skills || []);
 
+    if (rebirthData.status === "fulfilled") {
+      setCanRebirthWish(!!rebirthData.value.can_rebirth_wish);
+    }
+
     if (rebirthData.status === "fulfilled" && !rebirthData.value.is_alive) {
       setMode("death");
-      setStatusText("This life has ended. Restart or make a limited rebirth wish.");
+      setStatusText(
+        rebirthData.value.can_rebirth_wish
+          ? "This life has ended. Be reborn, or spend your completed-level wish."
+          : rebirthData.value.wish_requirement || "This life has ended. Be reborn to continue."
+      );
     } else if (ascensionData.status === "fulfilled" && ascensionData.value.awaiting_final_wish) {
       setMode("ascension");
       setStatusText(ascensionData.value.prompt || "State your wish.");
@@ -99,8 +108,16 @@ const Dashboard = () => {
         setBoss(gameData.boss || null);
         setBattle(gameData.battle || gameData.event_feedback?.combat || null);
         setEventFeedback(gameData.event_feedback || null);
-        setMode((currentMode) => currentMode === "death" || currentMode === "ascension" ? currentMode : "dungeon");
-        setStatusText((currentText) => currentText || "");
+        if (gameData.player?.is_alive === 0 || gameData.scene?.type === "death") {
+          setMode("death");
+          setStatusText(canRebirthWish ? "This life has ended. Be reborn, or use your earned wish." : "This life has ended. Be reborn to continue.");
+        } else if (gameData.scene?.type === "ascension") {
+          setMode("ascension");
+          setStatusText(gameData.message || "State your wish.");
+        } else {
+          setMode("dungeon");
+          setStatusText(gameData.message || "");
+        }
         return;
       } catch (currentError) {
         if (currentError?.response?.status !== 404) throw currentError;
@@ -135,7 +152,7 @@ const Dashboard = () => {
     } finally {
       setLoading(false);
     }
-  }, [refreshPlayer]);
+  }, [canRebirthWish, refreshPlayer]);
 
   useEffect(() => {
     loadGame();
@@ -156,12 +173,12 @@ const Dashboard = () => {
       setStatusText(data.final_ascension.prompt || "State your wish.");
     } else if (data.player?.is_alive === 0) {
       setMode("death");
-      setStatusText("This life has ended. Restart or make a limited rebirth wish.");
+      setStatusText(canRebirthWish ? "This life has ended. Be reborn, or use your earned wish." : "This life has ended. Be reborn to continue.");
     } else {
       setMode("dungeon");
       setStatusText(data.message || "");
     }
-  }, []);
+  }, [canRebirthWish]);
 
   const submitDungeonAction = async (value) => {
     const nextAction = String(value || "").trim();
@@ -431,21 +448,25 @@ const Dashboard = () => {
 
             {mode === "death" || mode === "ascension" ? (
               <section className={styles.wishPanel}>
-                <input
-                  className={styles.wishInput}
-                  type="text"
-                  value={wishText}
-                  maxLength={mode === "death" ? 240 : 1000}
-                  onChange={(event) => setWishText(event.target.value)}
-                  placeholder={mode === "death" ? "Limited rebirth wish..." : "State your final wish..."}
-                />
-                <button className={styles.primaryButton} type="button" onClick={submitWish} disabled={submitting || !wishText.trim()}>
-                  {submitting ? "Sending..." : "Send Wish"}
-                </button>
                 {mode === "death" && (
-                  <button className={styles.secondaryButton} type="button" onClick={restartLife} disabled={submitting}>
-                    Restart Same Form
+                  <button className={styles.primaryButton} type="button" onClick={restartLife} disabled={submitting}>
+                    {submitting ? "Rebirthing..." : "Be Reborn"}
                   </button>
+                )}
+                {(mode === "ascension" || canRebirthWish) && (
+                  <>
+                    <input
+                      className={styles.wishInput}
+                      type="text"
+                      value={wishText}
+                      maxLength={mode === "death" ? 240 : 1000}
+                      onChange={(event) => setWishText(event.target.value)}
+                      placeholder={mode === "death" ? "Earned rebirth wish..." : "State your final wish..."}
+                    />
+                    <button className={mode === "death" ? styles.secondaryButton : styles.primaryButton} type="button" onClick={submitWish} disabled={submitting || !wishText.trim()}>
+                      {submitting ? "Sending..." : "Send Wish"}
+                    </button>
+                  </>
                 )}
                 {mode === "ascension" && (
                   <button className={styles.secondaryButton} type="button" onClick={enterWorldMode} disabled={submitting}>
@@ -490,8 +511,8 @@ const Dashboard = () => {
                       disabled={submitting}
                     />
 
-                    <button className={styles.sendButton} type="submit" disabled={submitting || !actionText.trim()} aria-label="Send action">
-                      <Send size={20} />
+                    <button className={styles.sendButton} type="submit" disabled={submitting || !actionText.trim()} aria-label={submitting ? "Resolving action" : "Send action"}>
+                      {submitting ? <Hourglass className={styles.spinIcon} size={20} /> : <Send size={20} />}
                     </button>
                   </div>
                 </form>

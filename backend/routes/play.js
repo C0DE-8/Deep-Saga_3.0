@@ -190,6 +190,8 @@ router.get("/current", authenticateToken, async function getCurrentState(req, re
        FROM floor_enemy_spawns fes
        INNER JOIN enemy_types et ON fes.enemy_type_id = et.id
        WHERE fes.dungeon_floor_id = ?
+         AND ? BETWEEN et.min_dungeon_level AND et.max_dungeon_level
+         AND et.base_level <= ?
        ORDER BY fes.is_boss_spawn DESC, (-LOG(GREATEST(RAND(), 0.000001)) / GREATEST(fes.spawn_weight, 1)) ASC
        LIMIT 1`,
       [
@@ -197,7 +199,9 @@ router.get("/current", authenticateToken, async function getCurrentState(req, re
         floor.difficulty_rating,
         floor.difficulty_rating,
         floor.difficulty_rating,
-        floor.id
+        floor.id,
+        floor.level_number,
+        floor.difficulty_rating + 5
       ]
     );
 
@@ -236,6 +240,29 @@ router.get("/current", authenticateToken, async function getCurrentState(req, re
     );
 
     return enemy || fallbackEnemy;
+  }
+
+  function isEncounterTooStrongForFloor(enemy, floor) {
+    if (!enemy || enemy.is_boss || floor.is_boss_floor) return false;
+
+    return Number(enemy.base_level || 1) > Number(floor.difficulty_rating || 1) + 5;
+  }
+
+  async function resetOverpoweredFloorState(conn, player, state) {
+    if (state?.active_encounter_id) {
+      await conn.query(
+        `UPDATE player_encounters
+         SET is_resolved = 1, resolved_at = COALESCE(resolved_at, CURRENT_TIMESTAMP)
+         WHERE id = ?`,
+        [state.active_encounter_id]
+      );
+    }
+
+    await conn.query(
+      `DELETE FROM player_floor_states
+       WHERE player_id = ? AND dungeon_floor_id = ?`,
+      [player.id, state.dungeon_floor_id]
+    );
   }
 
   async function loadOrCreateFloorState(conn, player, floor, spawnEnemy) {
@@ -586,17 +613,41 @@ router.get("/current", authenticateToken, async function getCurrentState(req, re
       skills,
       event_feedback: persistedFeedback
     };
-    const ai = await narrateScene(context);
+    const sceneType = !player.is_alive || player.hp <= 0 ? "death" : "dungeon";
+    const cachedScene = persistedFeedback?.scene_snapshot?.type === sceneType
+      ? persistedFeedback.scene_snapshot
+      : null;
+    const ai = cachedScene?.text
+      ? { narration: cachedScene.text, choices: cachedScene.choices || [] }
+      : await narrateScene(context);
+    const sceneChoices = sceneType === "death"
+      ? ["Be reborn"]
+      : ai.choices;
+    const canType = sceneType !== "death";
+    const scene = {
+      title: sceneType === "death" ? "Death" : location.name,
+      text: ai.narration,
+      type: sceneType,
+      choices: sceneChoices,
+      can_type: canType
+    };
+
+    if (!cachedScene?.text && state?.player_id && state?.dungeon_floor_id) {
+      const nextFeedback = {
+        ...(persistedFeedback || {}),
+        scene_snapshot: scene
+      };
+      await conn.query(
+        `UPDATE player_floor_states
+         SET last_event_json = ?
+         WHERE player_id = ? AND dungeon_floor_id = ?`,
+        [JSON.stringify(nextFeedback), state.player_id, state.dungeon_floor_id]
+      );
+    }
 
     return {
       message: persistedFeedback?.message || "play_state_ready",
-      scene: {
-        title: location.name,
-        text: ai.narration,
-        type: "dungeon",
-        choices: ai.choices,
-        can_type: true
-      },
+      scene,
       world: {
         level: location.level,
         floor: location.floor,
@@ -623,8 +674,13 @@ router.get("/current", authenticateToken, async function getCurrentState(req, re
     if (!floor) return res.status(404).json({ message: "Dungeon floor not found. Run migration 002." });
 
     const spawnEnemy = await loadSpawnEnemy(conn, floor);
-    const state = await loadOrCreateFloorState(conn, player, floor, spawnEnemy);
-    const enemy = await loadEnemyForState(conn, floor, state, spawnEnemy);
+    let state = await loadOrCreateFloorState(conn, player, floor, spawnEnemy);
+    let enemy = await loadEnemyForState(conn, floor, state, spawnEnemy);
+    if (isEncounterTooStrongForFloor(enemy, floor)) {
+      await resetOverpoweredFloorState(conn, player, state);
+      state = await loadOrCreateFloorState(conn, player, floor, spawnEnemy);
+      enemy = await loadEnemyForState(conn, floor, state, spawnEnemy);
+    }
 
     return res.json(await buildResponse(conn, player, floor, enemy, state));
   } catch (error) {
@@ -815,6 +871,8 @@ router.post("/start", authenticateToken, async function startGame(req, res) {
        FROM floor_enemy_spawns fes
        INNER JOIN enemy_types et ON fes.enemy_type_id = et.id
        WHERE fes.dungeon_floor_id = ?
+         AND ? BETWEEN et.min_dungeon_level AND et.max_dungeon_level
+         AND et.base_level <= ?
        ORDER BY fes.is_boss_spawn DESC, (-LOG(GREATEST(RAND(), 0.000001)) / GREATEST(fes.spawn_weight, 1)) ASC
        LIMIT 1`,
       [
@@ -822,7 +880,9 @@ router.post("/start", authenticateToken, async function startGame(req, res) {
         floor.difficulty_rating,
         floor.difficulty_rating,
         floor.difficulty_rating,
-        floor.id
+        floor.id,
+        floor.level_number,
+        floor.difficulty_rating + 5
       ]
     );
 
@@ -861,6 +921,29 @@ router.post("/start", authenticateToken, async function startGame(req, res) {
     );
 
     return enemy || fallbackEnemy;
+  }
+
+  function isEncounterTooStrongForFloor(enemy, floor) {
+    if (!enemy || enemy.is_boss || floor.is_boss_floor) return false;
+
+    return Number(enemy.base_level || 1) > Number(floor.difficulty_rating || 1) + 5;
+  }
+
+  async function resetOverpoweredFloorState(conn, player, state) {
+    if (state?.active_encounter_id) {
+      await conn.query(
+        `UPDATE player_encounters
+         SET is_resolved = 1, resolved_at = COALESCE(resolved_at, CURRENT_TIMESTAMP)
+         WHERE id = ?`,
+        [state.active_encounter_id]
+      );
+    }
+
+    await conn.query(
+      `DELETE FROM player_floor_states
+       WHERE player_id = ? AND dungeon_floor_id = ?`,
+      [player.id, state.dungeon_floor_id]
+    );
   }
 
   async function loadOrCreateFloorState(conn, player, floor, spawnEnemy) {
@@ -1211,17 +1294,41 @@ router.post("/start", authenticateToken, async function startGame(req, res) {
       skills,
       event_feedback: persistedFeedback
     };
-    const ai = await narrateScene(context);
+    const sceneType = !player.is_alive || player.hp <= 0 ? "death" : "dungeon";
+    const cachedScene = persistedFeedback?.scene_snapshot?.type === sceneType
+      ? persistedFeedback.scene_snapshot
+      : null;
+    const ai = cachedScene?.text
+      ? { narration: cachedScene.text, choices: cachedScene.choices || [] }
+      : await narrateScene(context);
+    const sceneChoices = sceneType === "death"
+      ? ["Be reborn"]
+      : ai.choices;
+    const canType = sceneType !== "death";
+    const scene = {
+      title: sceneType === "death" ? "Death" : location.name,
+      text: ai.narration,
+      type: sceneType,
+      choices: sceneChoices,
+      can_type: canType
+    };
+
+    if (!cachedScene?.text && state?.player_id && state?.dungeon_floor_id) {
+      const nextFeedback = {
+        ...(persistedFeedback || {}),
+        scene_snapshot: scene
+      };
+      await conn.query(
+        `UPDATE player_floor_states
+         SET last_event_json = ?
+         WHERE player_id = ? AND dungeon_floor_id = ?`,
+        [JSON.stringify(nextFeedback), state.player_id, state.dungeon_floor_id]
+      );
+    }
 
     return {
       message: persistedFeedback?.message || "play_state_ready",
-      scene: {
-        title: location.name,
-        text: ai.narration,
-        type: "dungeon",
-        choices: ai.choices,
-        can_type: true
-      },
+      scene,
       world: {
         level: location.level,
         floor: location.floor,
@@ -1248,8 +1355,13 @@ router.post("/start", authenticateToken, async function startGame(req, res) {
     if (!floor) return res.status(404).json({ message: "Dungeon floor not found. Run migration 002." });
 
     const spawnEnemy = await loadSpawnEnemy(conn, floor);
-    const state = await loadOrCreateFloorState(conn, player, floor, spawnEnemy);
-    const enemy = await loadEnemyForState(conn, floor, state, spawnEnemy);
+    let state = await loadOrCreateFloorState(conn, player, floor, spawnEnemy);
+    let enemy = await loadEnemyForState(conn, floor, state, spawnEnemy);
+    if (isEncounterTooStrongForFloor(enemy, floor)) {
+      await resetOverpoweredFloorState(conn, player, state);
+      state = await loadOrCreateFloorState(conn, player, floor, spawnEnemy);
+      enemy = await loadEnemyForState(conn, floor, state, spawnEnemy);
+    }
 
     return res.json(await buildResponse(conn, player, floor, enemy, state));
   } catch (error) {
@@ -1659,6 +1771,33 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
     return clamp(multiplier, 0.35, 1.85);
   }
 
+  function getRequiredExp(level) {
+    return Math.max(25, (Number(level || 0) + 1) * 50);
+  }
+
+  function getMaxHpForStats(level, stamina) {
+    const levelBonus = Math.max(0, Number(level || 0)) * 10;
+    const staminaBonus = Math.max(0, Number(stamina || 0) - 4) * 5;
+
+    return 40 + levelBonus + staminaBonus;
+  }
+
+  function getPlayerBaseDamage(player) {
+    return Math.floor(
+      (Number(player.strength_stat || 1) * 2.6)
+      + (Number(player.dexterity_stat || 1) * 0.8)
+      + (Number(player.level || 0) * 1.5)
+    );
+  }
+
+  function getPlayerDamageMitigation(player) {
+    return Math.floor(
+      (Number(player.stamina_stat || 1) * 0.85)
+      + (Number(player.dexterity_stat || 1) * 0.25)
+      + (Number(player.wisdom_stat || 1) * 0.15)
+    );
+  }
+
   function getTargetStat(targetMember, statKey, fallback = 5) {
     return Number(targetMember?.stats?.[statKey] || fallback);
   }
@@ -1666,7 +1805,9 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
   function getComponentAccuracy({ component, actionInterpretation, player, targetMember, stepIndex, staminaSpent }) {
     const enemyDexterity = getTargetStat(targetMember, "dexterity", 5);
     const enemyWisdom = getTargetStat(targetMember, "wisdom", 3);
-    const playerControl = Number(player.dexterity_stat || 1) + Math.floor(Number(player.wisdom_stat || 1) / 2);
+    const playerControl = Number(player.dexterity_stat || 1)
+      + Math.floor(Number(player.wisdom_stat || 1) / 2)
+      + Math.floor(Number(player.level || 0) / 2);
     const enemyControl = enemyDexterity + Math.floor(enemyWisdom / 2);
     const targetArea = normalizeStatusSlug(component.target_area);
     let accuracy = 0.62 + ((playerControl - enemyControl) * 0.025);
@@ -1681,6 +1822,7 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
 
     accuracy -= stepIndex * 0.07;
     accuracy -= Math.max(0, staminaSpent - Number(player.stamina_stat || 1)) * 0.025;
+    accuracy += Math.max(0, Number(player.dexterity_stat || 1) - 8) * 0.01;
 
     return clamp(accuracy, 0.15, 0.9);
   }
@@ -1709,7 +1851,7 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
     const damageInstances = [];
     const statusEffectsApplied = [];
     const stepResults = new Map();
-    const baseDamage = Number(player.strength_stat || 1) * 2 + Math.floor(Number(player.dexterity_stat || 1) / 2);
+    const baseDamage = getPlayerBaseDamage(player);
     const enemyMaxHp = Number(targetMember?.max_hp || enemy?.scaled_hp || 1);
     let nextTargetHp = Number(targetMember?.hp || 0);
     let playerDamage = 0;
@@ -2085,6 +2227,8 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
        FROM floor_enemy_spawns fes
        INNER JOIN enemy_types et ON fes.enemy_type_id = et.id
        WHERE fes.dungeon_floor_id = ?
+         AND ? BETWEEN et.min_dungeon_level AND et.max_dungeon_level
+         AND et.base_level <= ?
        ORDER BY fes.is_boss_spawn DESC, (-LOG(GREATEST(RAND(), 0.000001)) / GREATEST(fes.spawn_weight, 1)) ASC
        LIMIT 1`,
       [
@@ -2092,7 +2236,9 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
         floor.difficulty_rating,
         floor.difficulty_rating,
         floor.difficulty_rating,
-        floor.id
+        floor.id,
+        floor.level_number,
+        floor.difficulty_rating + 5
       ]
     );
 
@@ -2131,6 +2277,29 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
     );
 
     return enemy || fallbackEnemy;
+  }
+
+  function isEncounterTooStrongForFloor(enemy, floor) {
+    if (!enemy || enemy.is_boss || floor.is_boss_floor) return false;
+
+    return Number(enemy.base_level || 1) > Number(floor.difficulty_rating || 1) + 5;
+  }
+
+  async function resetOverpoweredFloorState(conn, player, state) {
+    if (state?.active_encounter_id) {
+      await conn.query(
+        `UPDATE player_encounters
+         SET is_resolved = 1, resolved_at = COALESCE(resolved_at, CURRENT_TIMESTAMP)
+         WHERE id = ?`,
+        [state.active_encounter_id]
+      );
+    }
+
+    await conn.query(
+      `DELETE FROM player_floor_states
+       WHERE player_id = ? AND dungeon_floor_id = ?`,
+      [player.id, state.dungeon_floor_id]
+    );
   }
 
   async function loadOrCreateFloorState(conn, player, floor, spawnEnemy) {
@@ -2455,18 +2624,29 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
 
   async function buildResponse(conn, player, floor, enemy, state, eventFeedback = null) {
     const context = await buildAiContext(conn, player, floor, enemy, state, eventFeedback);
-    const ai = await narrateScene(context);
+    const sceneType = !player.is_alive || player.hp <= 0 ? "death" : "dungeon";
+    const cachedScene = context.event_feedback?.scene_snapshot?.type === sceneType
+      ? context.event_feedback.scene_snapshot
+      : null;
+    const ai = cachedScene?.text
+      ? { narration: cachedScene.text, choices: cachedScene.choices || [] }
+      : await narrateScene(context);
     const location = context.location;
+    const sceneChoices = sceneType === "death"
+      ? ["Be reborn"]
+      : ai.choices;
+    const canType = sceneType !== "death";
+    const scene = {
+      title: sceneType === "death" ? "Death" : location.name,
+      text: ai.narration,
+      type: sceneType,
+      choices: sceneChoices,
+      can_type: canType
+    };
 
     return {
       message: context.event_feedback?.message || "play_state_ready",
-      scene: {
-        title: location.name,
-        text: ai.narration,
-        type: "dungeon",
-        choices: ai.choices,
-        can_type: true
-      },
+      scene,
       world: {
         level: location.level,
         floor: location.floor,
@@ -2508,8 +2688,13 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
     }
 
     const spawnEnemy = await loadSpawnEnemy(conn, floor);
-    const state = await loadOrCreateFloorState(conn, player, floor, spawnEnemy);
-    const enemy = await loadEnemyForState(conn, floor, state, spawnEnemy);
+    let state = await loadOrCreateFloorState(conn, player, floor, spawnEnemy);
+    let enemy = await loadEnemyForState(conn, floor, state, spawnEnemy);
+    if (isEncounterTooStrongForFloor(enemy, floor)) {
+      await resetOverpoweredFloorState(conn, player, state);
+      state = await loadOrCreateFloorState(conn, player, floor, spawnEnemy);
+      enemy = await loadEnemyForState(conn, floor, state, spawnEnemy);
+    }
     const actionContext = await buildAiContext(conn, player, floor, enemy, state, {
       player_action: actionInput
     });
@@ -2549,6 +2734,7 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
     let nextEnemyHp = state.enemy_hp;
     let nextEnemyCount = state.enemy_count;
     let nextAlive = player.is_alive;
+    let nextMaxHp = Math.max(Number(player.max_hp || 0), getMaxHpForStats(nextLevel, player.stamina_stat));
 
     if (mechanicKey === "attack" && enemy && state.enemy_hp > 0) {
       const activeMembers = Array.isArray(state.encounter_members)
@@ -2625,7 +2811,7 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
           const glancing = !landed && roll <= accuracy + 0.16;
           const hitQuality = landed ? clamp(0.45 + (accuracy - roll), 0.35, 1) : glancing ? 0.22 : 0;
           const damage = hitQuality > 0
-            ? Math.max(0, Math.floor((player.strength_stat * 2 + Math.floor(player.dexterity_stat / 2)) * multiplier * pressureShare * hitQuality) - Math.floor(targetDefense * 0.25))
+            ? Math.max(0, Math.floor(getPlayerBaseDamage(player) * multiplier * pressureShare * hitQuality) - Math.floor(targetDefense * 0.25))
             : 0;
 
           damageInstances.push({
@@ -2660,12 +2846,13 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
         ), 0);
         const interruptionPenalty = chainResolution?.interrupted ? 0 : impairmentPenalty;
 
-        enemyDamage = Math.max(0, groupAttack - Math.floor(player.stamina_stat / 2) - interruptionPenalty);
+        enemyDamage = Math.max(0, groupAttack - getPlayerDamageMitigation(player) - interruptionPenalty);
       }
 
       if (nextEnemyHp <= 0) {
         defeatedEnemy = enemy;
-        nextExp += enemy.scaled_xp * Math.max(1, state.enemy_count);
+        const expGained = enemy.scaled_xp * Math.max(1, state.enemy_count);
+        nextExp += expGained;
         eventFeedback.combat = {
           player_attempt: actionInput,
           target_member: targetMember,
@@ -2696,18 +2883,29 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
           player_damage_dealt: playerDamage,
           enemy_damage_dealt: 0,
           remaining_enemy_count: 0,
-          defeated: true
+          defeated: true,
+          exp_gained: expGained
         };
 
-        const requiredExp = Math.max(25, (nextLevel + 1) * 50);
-        if (nextExp >= requiredExp) {
+        const levelUps = [];
+        while (nextExp >= getRequiredExp(nextLevel)) {
+          const requiredExp = getRequiredExp(nextLevel);
           nextExp -= requiredExp;
           nextLevel += 1;
           nextStatPoints += 3;
-          eventFeedback.level_up = {
+          const previousMaxHp = nextMaxHp;
+          nextMaxHp = getMaxHpForStats(nextLevel, player.stamina_stat);
+          nextHp = Math.min(nextMaxHp, nextHp + Math.max(0, nextMaxHp - previousMaxHp));
+          levelUps.push({
             level: nextLevel,
-            stat_points_gained: 3
-          };
+            required_exp: requiredExp,
+            stat_points_gained: 3,
+            max_hp: nextMaxHp
+          });
+        }
+        if (levelUps.length) {
+          eventFeedback.level_up = levelUps[levelUps.length - 1];
+          eventFeedback.level_ups = levelUps;
         }
       } else {
         nextHp = Math.max(0, player.hp - enemyDamage);
@@ -2747,7 +2945,7 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
       }
     } else if (mechanicKey === "move") {
       if (state.enemy_hp > 0) {
-        const enemyDamage = enemy ? Math.max(1, enemy.scaled_attack - Math.floor(player.dexterity_stat / 2)) : 0;
+        const enemyDamage = enemy ? Math.max(1, enemy.scaled_attack - Math.floor(Number(player.dexterity_stat || 1) * 0.65)) : 0;
         nextHp = Math.max(0, player.hp - enemyDamage);
         eventFeedback.world_reaction = {
           code: "blocked_by_active_enemy",
@@ -2777,14 +2975,14 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
       }
     } else if (mechanicKey === "rest") {
       const recovery = Math.max(4, player.stamina_stat * 2);
-      nextHp = Math.min(player.max_hp, player.hp + recovery);
+      nextHp = Math.min(nextMaxHp, player.hp + recovery);
       eventFeedback.recovery = {
         hp_recovered: nextHp - player.hp,
-        recovery_complete: nextHp === player.max_hp
+        recovery_complete: nextHp === nextMaxHp
       };
     } else if (mechanicKey === "defend") {
       if (enemy && state.enemy_hp > 0) {
-        const enemyDamage = Math.max(0, Math.floor(enemy.scaled_attack / 2) - player.stamina_stat);
+        const enemyDamage = Math.max(0, Math.floor(enemy.scaled_attack / 2) - getPlayerDamageMitigation(player));
         nextHp = Math.max(0, player.hp - enemyDamage);
         eventFeedback.combat = {
           player_attempt: actionInput,
@@ -2825,6 +3023,7 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
         exp = ?,
         stat_points = ?,
         hp = ?,
+        max_hp = ?,
         is_alive = ?,
         year_survived = ?,
         day_survived = ?,
@@ -2838,6 +3037,7 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
         nextExp,
         nextStatPoints,
         nextHp,
+        nextMaxHp,
         nextAlive,
         time.year,
         time.day,
@@ -2909,6 +3109,7 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
       exp: nextExp,
       stat_points: nextStatPoints,
       hp: nextHp,
+      max_hp: nextMaxHp,
       is_alive: nextAlive,
       year_survived: time.year,
       day_survived: time.day,
@@ -2922,15 +3123,25 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
       ...eventFeedback,
       skill_progression: skillProgression
     });
+    const responseFeedback = {
+      ...eventFeedback,
+      skill_progression: skillProgression,
+      scene_snapshot: response.scene
+    };
+    if (nextState?.player_id && nextState?.dungeon_floor_id) {
+      await pool.query(
+        `UPDATE player_floor_states
+         SET last_event_json = ?
+         WHERE player_id = ? AND dungeon_floor_id = ?`,
+        [JSON.stringify(responseFeedback), nextState.player_id, nextState.dungeon_floor_id]
+      );
+    }
     await saveStoryEvent(pool, {
       player: nextPlayer,
       floor: nextFloorData || floor,
       enemy,
       response,
-      eventFeedback: {
-        ...eventFeedback,
-        skill_progression: skillProgression
-      },
+      eventFeedback: responseFeedback,
       actionInterpretation
     });
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { BookOpen, RefreshCw, Star } from "lucide-react";
 import BottomNav from "../../components/bottomNav/BottomNav";
@@ -13,7 +13,6 @@ const getErrorMessage = (error, fallback = "Request failed") => {
 const Story = () => {
   const [events, setEvents] = useState([]);
   const [chapters, setChapters] = useState([]);
-  const [selectedEvent, setSelectedEvent] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const loadStory = useCallback(async () => {
@@ -28,7 +27,6 @@ const Story = () => {
       const nextEvents = chronicleData.events || [];
       setEvents(nextEvents);
       setChapters(chapterData.chapters || []);
-      setSelectedEvent((current) => current || nextEvents[0] || null);
     } catch (error) {
       toast.error(getErrorMessage(error, "Failed to load Chronicle"));
     } finally {
@@ -40,9 +38,70 @@ const Story = () => {
     loadStory();
   }, [loadStory]);
 
+  const latestEvent = events[events.length - 1] || null;
+  const books = useMemo(() => {
+    const chapterDetails = new Map(chapters.map((chapter) => [Number(chapter.chapter_number), chapter]));
+    const nextBooks = [];
+    let currentBook = {
+      number: 1,
+      title: "Book 1",
+      chapters: new Map()
+    };
+
+    function ensureChapter(book, event) {
+      const chapterNumber = Number(event.chapter_number || 1);
+      if (!book.chapters.has(chapterNumber)) {
+        const chapter = chapterDetails.get(chapterNumber);
+        book.chapters.set(chapterNumber, {
+          chapter_number: chapterNumber,
+          title: chapter?.title || `Chapter ${chapterNumber}`,
+          summary: chapter?.summary || null,
+          events: []
+        });
+      }
+
+      return book.chapters.get(chapterNumber);
+    }
+
+    for (const event of events) {
+      if (event.event_type === "reincarnation" && currentBook.chapters.size) {
+        nextBooks.push(currentBook);
+        const nextNumber = nextBooks.length + 1;
+        currentBook = {
+          number: nextNumber,
+          title: `Book ${nextNumber}`,
+          chapters: new Map()
+        };
+      }
+
+      ensureChapter(currentBook, event).events.push(event);
+
+      if (event.event_type === "death") {
+        nextBooks.push(currentBook);
+        const nextNumber = nextBooks.length + 1;
+        currentBook = {
+          number: nextNumber,
+          title: `Book ${nextNumber}`,
+          chapters: new Map()
+        };
+      }
+    }
+
+    if (currentBook.chapters.size || !nextBooks.length) {
+      nextBooks.push(currentBook);
+    }
+
+    return nextBooks.map((book) => ({
+      ...book,
+      chapters: Array.from(book.chapters.values())
+        .filter((chapter) => chapter.events.length)
+        .sort((a, b) => Number(a.chapter_number) - Number(b.chapter_number))
+    })).filter((book) => book.chapters.length);
+  }, [chapters, events]);
+
   return (
     <div className={styles.page}>
-      <Header floor={selectedEvent?.location?.floor ?? "J"} title="Chronicle" />
+      <Header floor={latestEvent?.location?.floor ?? "J"} title="Chronicle" />
 
       <main className={styles.content}>
         {loading ? (
@@ -67,44 +126,48 @@ const Story = () => {
               </section>
             ) : (
               <>
-                {selectedEvent && (
-                  <article className={styles.featured}>
-                    <div className={styles.featuredMeta}>
-                      <span>Chapter {selectedEvent.chapter_number}</span>
-                      <span>{selectedEvent.event_type}</span>
-                      {selectedEvent.is_legendary ? (
-                        <span className={styles.legendary}>
-                          <Star size={14} />
-                          Legendary
-                        </span>
-                      ) : null}
-                    </div>
+                <section className={styles.book}>
+                  {books.map((book) => (
+                    <article className={styles.bookVolume} key={book.number}>
+                      <header className={styles.bookHeader}>
+                        <span>{book.title}</span>
+                        <h2>{book.number === 1 ? "First Life" : "New Life"}</h2>
+                      </header>
 
-                    <h2>{selectedEvent.title}</h2>
-                    {selectedEvent.summary && <p className={styles.summary}>{selectedEvent.summary}</p>}
-                    <p className={styles.narration}>{selectedEvent.narration}</p>
+                      {book.chapters.map((chapter) => (
+                        <section className={styles.chapter} key={`${book.number}-${chapter.chapter_number}`}>
+                          <header className={styles.chapterHeader}>
+                            <span>Chapter {chapter.chapter_number}</span>
+                            <h2>{chapter.title}</h2>
+                            {chapter.summary && <p>{chapter.summary}</p>}
+                          </header>
 
-                    <div className={styles.eventFooter}>
-                      <span>{selectedEvent.location?.area || "Unknown area"}</span>
-                      <span>Y{selectedEvent.occurred_year} D{selectedEvent.occurred_day} H{selectedEvent.occurred_hour}</span>
-                    </div>
-                  </article>
-                )}
+                          {chapter.events.map((event, index) => (
+                            <section className={`${styles.scene} ${event.event_type === "death" ? styles.deathScene : ""} ${event.event_type === "reincarnation" ? styles.rebirthScene : ""}`} key={event.id}>
+                              <div className={styles.sceneMeta}>
+                                <span>{event.event_type === "reincarnation" ? "Opening" : `Scene ${index + 1}`}</span>
+                                <span>{event.event_type}</span>
+                                {event.is_legendary ? (
+                                  <span className={styles.legendary}>
+                                    <Star size={14} />
+                                    Legendary
+                                  </span>
+                                ) : null}
+                              </div>
 
-                <section className={styles.timeline}>
-                  {events.map((event) => (
-                    <button
-                      className={`${styles.eventCard} ${selectedEvent?.id === event.id ? styles.active : ""}`}
-                      key={event.id}
-                      type="button"
-                      onClick={() => setSelectedEvent(event)}
-                    >
-                      <div>
-                        <span>{event.event_type}</span>
-                        <strong>{event.title}</strong>
-                      </div>
-                      <small>Ch. {event.chapter_number}</small>
-                    </button>
+                              <h3>{event.title}</h3>
+                              {event.summary && <p className={styles.summary}>{event.summary}</p>}
+                              <p className={styles.narration}>{event.narration}</p>
+
+                              <div className={styles.eventFooter}>
+                                <span>{event.location?.area || "Unknown area"}</span>
+                                <span>Y{event.occurred_year} D{event.occurred_day} H{event.occurred_hour}</span>
+                              </div>
+                            </section>
+                          ))}
+                        </section>
+                      ))}
+                    </article>
                   ))}
                 </section>
               </>

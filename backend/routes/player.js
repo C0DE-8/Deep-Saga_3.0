@@ -8,6 +8,13 @@ const {
   getPlayerSkills
 } = require("../services/skillEngine");
 
+function getMaxHpForStats(level, stamina) {
+  const levelBonus = Math.max(0, Number(level || 0)) * 10;
+  const staminaBonus = Math.max(0, Number(stamina || 0) - 4) * 5;
+
+  return 40 + levelBonus + staminaBonus;
+}
+
 // api/player/profile
 router.get("/profile", authenticateToken, async (req, res) => {
   const userId = req.user.userId;
@@ -140,6 +147,7 @@ router.post("/allocate-stats", authenticateToken, async (req, res) => {
     const [[player]] = await conn.query(
       `SELECT
         id,
+        level,
         stat_points,
         hp,
         max_hp,
@@ -173,11 +181,10 @@ router.post("/allocate-stats", authenticateToken, async (req, res) => {
     const nextWisdom = player.wisdom_stat + spendMap.wisdom;
     const nextStatPoints = player.stat_points - totalSpent;
 
-    // Keep your current formula for now
-    const nextMaxHp = 20 + (nextStamina * 5);
+    const nextMaxHp = getMaxHpForStats(player.level, nextStamina);
 
-    // Keep current HP, but do not allow it to exceed new max HP
-    const nextHp = Math.min(player.hp, nextMaxHp);
+    const maxHpGained = Math.max(0, nextMaxHp - Number(player.max_hp || 0));
+    const nextHp = Math.min(nextMaxHp, Number(player.hp || 0) + maxHpGained);
 
     await conn.query(
       `UPDATE players

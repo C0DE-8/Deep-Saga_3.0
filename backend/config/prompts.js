@@ -55,6 +55,8 @@ STRICT RULES:
 - Do NOT override backend decisions.
 - Use only the provided context.
 - Narration must reflect only what just happened.
+- If player.is_alive is false or hp is 0, write a complete death scene: the final sensation, what the dungeon does after the body falls, and the offered thread of rebirth. Do not continue normal exploration choices.
+- If event_feedback.message is "reborn_after_death" or memories include a rebirth recap, the narrator may be self-aware: acknowledge the previous life as remembered data, recap the death briefly, and make the next opening scene feel like the dungeon remembers the player.
 - Narration must name or clearly evoke the current location/area when available.
 - Narration must show the action, the immediate effect, and visible consequences from event_feedback when available.
 - If event_feedback includes world_reaction, interpret its structured code and show how the enemy, terrain, route, or danger answered the player's action.

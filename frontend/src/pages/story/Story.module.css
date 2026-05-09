@@ -47,8 +47,7 @@
   line-height: 1.35;
 }
 
-.emptyPanel,
-.featured {
+.emptyPanel {
   border: 1px solid #d8d8d8;
   border-radius: 8px;
   background: #050505;
@@ -71,7 +70,91 @@
   line-height: 1.45;
 }
 
-.featuredMeta {
+.book {
+  display: flex;
+  flex-direction: column;
+  gap: 44px;
+}
+
+.bookVolume {
+  border-top: 2px solid #f3f3f3;
+  padding-top: 24px;
+}
+
+.bookHeader {
+  text-align: center;
+  margin-bottom: 26px;
+}
+
+.bookHeader span {
+  color: #ffe39a;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.bookHeader h2 {
+  margin: 8px 0 0;
+  font-size: 2rem;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+.chapter {
+  border-top: 1px solid #555;
+  padding-top: 22px;
+  margin-top: 24px;
+}
+
+.chapterHeader {
+  margin-bottom: 18px;
+  text-align: center;
+}
+
+.chapterHeader span {
+  color: #9fc9ff;
+  font-size: 0.86rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.chapterHeader h2 {
+  margin: 8px 0;
+  font-size: 1.65rem;
+  font-weight: 500;
+  line-height: 1.25;
+}
+
+.chapterHeader p {
+  margin: 0 auto;
+  max-width: 620px;
+  color: #bdbdbd;
+  line-height: 1.45;
+}
+
+.scene {
+  border-left: 1px solid #333;
+  padding: 0 0 26px 18px;
+  margin-left: 8px;
+}
+
+.scene:last-child {
+  padding-bottom: 4px;
+}
+
+.deathScene {
+  border-left-color: #c83d3d;
+  background: linear-gradient(90deg, rgba(200, 61, 61, 0.12), transparent 42%);
+  padding-top: 12px;
+}
+
+.rebirthScene {
+  border-left-color: #ffe39a;
+  background: linear-gradient(90deg, rgba(255, 227, 154, 0.1), transparent 42%);
+  padding-top: 12px;
+}
+
+.sceneMeta {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -79,7 +162,7 @@
   margin-bottom: 14px;
 }
 
-.featuredMeta span {
+.sceneMeta span {
   border: 1px solid #333;
   background: #080808;
   color: #cfcfcf;
@@ -95,7 +178,7 @@
   color: #ffe39a !important;
 }
 
-.featured h2 {
+.scene h3 {
   margin: 0 0 10px;
   font-size: 1.45rem;
   font-weight: 500;
@@ -126,60 +209,18 @@
   font-size: 0.9rem;
 }
 
-.timeline {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.eventCard {
-  width: 100%;
-  border: 1px solid #2a2a2a;
-  background: #080808;
-  color: #f5f5f5;
-  min-height: 68px;
-  padding: 12px;
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 12px;
-  align-items: center;
-  text-align: left;
-  cursor: pointer;
-  font-family: Georgia, "Times New Roman", serif;
-  transition: border-color 0.2s ease, background 0.2s ease;
-}
-
-.eventCard:hover,
-.eventCard.active {
-  border-color: #d8d8d8;
-  background: #101010;
-}
-
-.eventCard div {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  min-width: 0;
-}
-
-.eventCard span,
-.eventCard small {
-  color: #9fc9ff;
-  font-size: 0.82rem;
-}
-
-.eventCard strong {
-  overflow-wrap: anywhere;
-  line-height: 1.25;
-}
-
 @media (max-width: 560px) {
   .content {
     padding: 84px 14px 110px;
   }
 
-  .featured h2 {
+  .scene h3 {
     font-size: 1.2rem;
+  }
+
+  .scene {
+    padding-left: 12px;
+    margin-left: 4px;
   }
 
   .eventFooter {

@@ -2,7 +2,7 @@ const router = require("express").Router();
 const pool = require("../config/db");
 const authenticateToken = require("../middleware/authMiddleware");
 
-// Lists the player's Chronicle timeline with the newest story moments first.
+// Lists the player's Chronicle timeline in reading order, from the beginning to the latest scene.
 router.get("/chronicle", authenticateToken, async (req, res) => {
   const userId = req.user.userId;
   const limit = Math.min(Math.max(Number(req.query.limit) || 30, 1), 100);
@@ -49,7 +49,7 @@ router.get("/chronicle", authenticateToken, async (req, res) => {
         created_at
        FROM player_story_events
        WHERE player_id = ?
-       ORDER BY occurred_year DESC, occurred_day DESC, occurred_hour DESC, id DESC
+       ORDER BY occurred_year ASC, occurred_day ASC, occurred_hour ASC, id ASC
        LIMIT ? OFFSET ?`,
       [player.id, limit, offset]
     );

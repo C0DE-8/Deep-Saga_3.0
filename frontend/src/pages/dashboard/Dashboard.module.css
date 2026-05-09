@@ -296,6 +296,21 @@
   font-size: 1.4rem;
 }
 
+.spinIcon {
+  animation: hourglassSpin 0.9s linear infinite;
+  color: #f5f5f5;
+}
+
+@keyframes hourglassSpin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .input {
   width: 100%;
   background: transparent;
