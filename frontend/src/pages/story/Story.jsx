@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { BookOpen, RefreshCw, Star } from "lucide-react";
 import BottomNav from "../../components/bottomNav/BottomNav";
@@ -14,6 +14,7 @@ const Story = () => {
   const [events, setEvents] = useState([]);
   const [chapters, setChapters] = useState([]);
   const [loading, setLoading] = useState(true);
+  const latestSceneRef = useRef(null);
 
   const loadStory = useCallback(async () => {
     setLoading(true);
@@ -37,6 +38,16 @@ const Story = () => {
   useEffect(() => {
     loadStory();
   }, [loadStory]);
+
+  useEffect(() => {
+    if (loading || !events.length) return;
+
+    requestAnimationFrame(() => {
+      latestSceneRef.current?.scrollIntoView({
+        block: "end"
+      });
+    });
+  }, [events.length, loading]);
 
   const latestEvent = events[events.length - 1] || null;
   const books = useMemo(() => {
@@ -98,6 +109,7 @@ const Story = () => {
         .sort((a, b) => Number(a.chapter_number) - Number(b.chapter_number))
     })).filter((book) => book.chapters.length);
   }, [chapters, events]);
+  const latestEventId = latestEvent?.id;
 
   return (
     <div className={styles.page}>
@@ -143,7 +155,11 @@ const Story = () => {
                           </header>
 
                           {chapter.events.map((event, index) => (
-                            <section className={`${styles.scene} ${event.event_type === "death" ? styles.deathScene : ""} ${event.event_type === "reincarnation" ? styles.rebirthScene : ""}`} key={event.id}>
+                            <section
+                              className={`${styles.scene} ${event.event_type === "death" ? styles.deathScene : ""} ${event.event_type === "reincarnation" ? styles.rebirthScene : ""}`}
+                              key={event.id}
+                              ref={event.id === latestEventId ? latestSceneRef : null}
+                            >
                               <div className={styles.sceneMeta}>
                                 <span>{event.event_type === "reincarnation" ? "Opening" : `Scene ${index + 1}`}</span>
                                 <span>{event.event_type}</span>

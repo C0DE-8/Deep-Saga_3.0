@@ -1,7 +1,7 @@
 const router = require("express").Router();
 const pool = require("../config/db");
 const { model } = require("../config/gemini");
-const { buildPrompt, buildActionInterpretationPrompt } = require("../config/prompts");
+const { buildPrompt, buildActionInterpretationPrompt, buildWorldDirectorPrompt } = require("../config/prompts");
 const authenticateToken = require("../middleware/authMiddleware");
 const { getActionTimeCost, applyTime, getTimeOfDay } = require("../services/timeEngine");
 const {
@@ -1623,6 +1623,7 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
       const parsedComponents = normalizeCombatComponents(parsed.combat_components);
       const rawMechanicKey = String(parsed.mechanic_key || "typed");
       const mechanicKey = rawMechanicKey === "typed" && parsedComponents.length ? "attack" : rawMechanicKey;
+      const parsedStatusAttempts = normalizeStringArray(parsed.status_attempts);
 
       return {
         action_key: String(parsed.action_key || "typed_player_action"),
@@ -1639,7 +1640,7 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
         weapon_source: cleanNullableString(parsed.weapon_source),
         weapon_usage: normalizeWeaponUsage(parsed.weapon_usage),
         intended_status_effect: cleanNullableString(parsed.intended_status_effect),
-        status_attempts: normalizeStringArray(parsed.status_attempts),
+        status_attempts: parsedStatusAttempts,
         finisher_attempt: parsed.finisher_attempt === true,
         finisher_detection: {
           is_finisher: parsed.finisher_detection?.is_finisher === true || parsed.finisher_attempt === true,
@@ -1662,6 +1663,116 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
       console.error("play interpretation error:", error.message);
 
       return fallbackInterpretation("Action interpretation fallback");
+    }
+  }
+
+  async function directWorldOutcome({ persona, context, actionInterpretation }) {
+    function cleanString(value, fallback = "") {
+      return String(value || fallback).trim();
+    }
+
+    function cleanNullableString(value) {
+      const text = cleanString(value);
+      return text ? text : null;
+    }
+
+    const allowedOutcomes = [
+      "advance_floor",
+      "gateway_advance",
+      "stay_in_area",
+      "blocked",
+      "discover",
+      "rest_safe",
+      "rest_uneasy",
+      "rest_interrupted",
+      "hide_success",
+      "hide_partial",
+      "hide_failed",
+      "observe",
+      "world_pressure"
+    ];
+    const allowedMovement = ["advance", "gateway", "stay", "blocked"];
+    const allowedRest = ["safe", "uneasy", "interrupted", "none"];
+    const allowedStealth = ["hidden", "partial", "failed", "none"];
+
+    function fallbackDirective(reason) {
+      return {
+        outcome_key: actionInterpretation.mechanic_key === "move" ? "advance_floor" : "observe",
+        world_state: "The dungeon holds to its current pressure.",
+        route_result: {
+          movement: actionInterpretation.mechanic_key === "move" ? "advance" : "stay",
+          reason
+        },
+        rest_result: {
+          state: actionInterpretation.mechanic_key === "rest" ? "safe" : "none",
+          reason
+        },
+        stealth_result: {
+          state: actionInterpretation.mechanic_key === "hide" ? "partial" : "none",
+          reason
+        },
+        discovery: {
+          found: false,
+          name: null,
+          description: null,
+          useful_as: null
+        },
+        threat_posture: null,
+        environment_shift: null,
+        memory_summary: cleanString(actionInterpretation.intent || actionInterpretation.primary_action || reason, reason).slice(0, 240),
+        risk_level: ["low", "medium", "high"].includes(actionInterpretation.risk_level) ? actionInterpretation.risk_level : "medium",
+        backend_notes: reason
+      };
+    }
+
+    if (!process.env.GEMINI_API_KEY) {
+      return fallbackDirective("Gemini is not configured");
+    }
+
+    try {
+      const prompt = buildWorldDirectorPrompt({
+        persona,
+        context,
+        actionInterpretation
+      });
+      const result = await model.generateContent(prompt);
+      const parsed = parseAiJson(result.response.text());
+      const outcomeKey = cleanString(parsed.outcome_key, "observe");
+      const movement = cleanString(parsed.route_result?.movement, "stay");
+      const restState = cleanString(parsed.rest_result?.state, "none");
+      const stealthState = cleanString(parsed.stealth_result?.state, "none");
+      const riskLevel = cleanString(parsed.risk_level, "medium");
+
+      return {
+        outcome_key: allowedOutcomes.includes(outcomeKey) ? outcomeKey : "observe",
+        world_state: cleanString(parsed.world_state, "The dungeon answers without revealing its full intent."),
+        route_result: {
+          movement: allowedMovement.includes(movement) ? movement : "stay",
+          reason: cleanString(parsed.route_result?.reason)
+        },
+        rest_result: {
+          state: allowedRest.includes(restState) ? restState : "none",
+          reason: cleanString(parsed.rest_result?.reason)
+        },
+        stealth_result: {
+          state: allowedStealth.includes(stealthState) ? stealthState : "none",
+          reason: cleanString(parsed.stealth_result?.reason)
+        },
+        discovery: {
+          found: parsed.discovery?.found === true,
+          name: cleanNullableString(parsed.discovery?.name),
+          description: cleanNullableString(parsed.discovery?.description),
+          useful_as: cleanNullableString(parsed.discovery?.useful_as)
+        },
+        threat_posture: cleanNullableString(parsed.threat_posture),
+        environment_shift: cleanNullableString(parsed.environment_shift),
+        memory_summary: cleanString(parsed.memory_summary, actionInterpretation.intent || "The dungeon shifted.").slice(0, 240),
+        risk_level: ["low", "medium", "high"].includes(riskLevel) ? riskLevel : "medium",
+        backend_notes: cleanString(parsed.backend_notes)
+      };
+    } catch (error) {
+      console.error("world director error:", error.message);
+      return fallbackDirective("World director fallback");
     }
   }
 
@@ -1790,6 +1901,10 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
     );
   }
 
+  function getDamageVariance() {
+    return 0.88 + (Math.random() * 0.24);
+  }
+
   function getPlayerDamageMitigation(player) {
     return Math.floor(
       (Number(player.stamina_stat || 1) * 0.85)
@@ -1804,13 +1919,11 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
 
   function getComponentAccuracy({ component, actionInterpretation, player, targetMember, stepIndex, staminaSpent }) {
     const enemyDexterity = getTargetStat(targetMember, "dexterity", 5);
-    const enemyWisdom = getTargetStat(targetMember, "wisdom", 3);
-    const playerControl = Number(player.dexterity_stat || 1)
-      + Math.floor(Number(player.wisdom_stat || 1) / 2)
-      + Math.floor(Number(player.level || 0) / 2);
-    const enemyControl = enemyDexterity + Math.floor(enemyWisdom / 2);
+    const enemyWisdom = getTargetStat(targetMember, "wisdom", 2);
+    const playerDexterity = Number(player.dexterity_stat || 1);
+    const enemyEvasion = enemyDexterity + Math.floor(enemyWisdom / 3);
     const targetArea = normalizeStatusSlug(component.target_area);
-    let accuracy = 0.62 + ((playerControl - enemyControl) * 0.025);
+    let accuracy = 0.65 + ((playerDexterity - enemyEvasion) * 0.035);
 
     if (component.action_type === "setup") accuracy += 0.08;
     if (component.action_type === "status") accuracy -= 0.03;
@@ -1822,7 +1935,6 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
 
     accuracy -= stepIndex * 0.07;
     accuracy -= Math.max(0, staminaSpent - Number(player.stamina_stat || 1)) * 0.025;
-    accuracy += Math.max(0, Number(player.dexterity_stat || 1) - 8) * 0.01;
 
     return clamp(accuracy, 0.15, 0.9);
   }
@@ -1921,8 +2033,9 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
         : nextTargetHp <= Math.floor(enemyMaxHp * 0.35) || successfulSteps >= 2;
       const finisherPenalty = finisherAllowed ? 1 : 0.45;
       const canDamage = component.damage_profile !== "none" || ["attack", "environment", "finisher", "status"].includes(component.action_type);
+      const variance = getDamageVariance();
       const rawDamage = canDamage
-        ? Math.floor((baseDamage + environmentBonus) * multiplier * stepPressureShare * statusFocusPenalty * finisherPenalty * hitQuality)
+        ? Math.floor((baseDamage + environmentBonus) * multiplier * stepPressureShare * statusFocusPenalty * finisherPenalty * hitQuality * variance)
         : 0;
       const damage = hitQuality > 0
         ? Math.min(nextTargetHp, Math.max(0, rawDamage - Math.floor(Number(targetDefense || 0) * 0.25)))
@@ -1967,6 +2080,7 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
         landed,
         glancing,
         hit_quality: Number(hitQuality.toFixed(2)),
+        damage_variance: Number(variance.toFixed(2)),
         finisher_allowed: finisherAllowed,
         interrupted: false,
         damage_dealt: damage,
@@ -2114,6 +2228,8 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
           JSON.stringify({
             player_action: eventFeedback?.player_action,
             combat,
+            world_reaction: eventFeedback?.world_reaction || null,
+            ai_world_directive: eventFeedback?.ai_world_directive || null,
             enemy: response.enemy,
             interpretation: actionInterpretation
           }),
@@ -2703,6 +2819,11 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
       context: actionContext,
       actionInput
     });
+    const aiWorldDirective = await directWorldOutcome({
+      persona: player.persona,
+      context: actionContext,
+      actionInterpretation
+    });
     const actionKey = actionInterpretation.action_key;
     const mechanicKey = actionInterpretation.playable ? actionInterpretation.mechanic_key : "typed";
 
@@ -2720,6 +2841,7 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
       action_key: actionKey,
       mechanic_key: mechanicKey,
       interpretation: actionInterpretation,
+      ai_world_directive: aiWorldDirective,
       message: "action_resolved"
     };
 
@@ -2805,13 +2927,21 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
         playerDamage = combatComponents.reduce((sum, component) => {
           const multiplier = getComponentDamageMultiplier(component, actionInterpretation);
           const pressureShare = clamp(0.8 / combatComponents.length, 0.18, 0.8);
-          const accuracy = clamp(0.62 - (damageInstances.length * 0.07), 0.25, 0.85);
+          const accuracy = getComponentAccuracy({
+            component,
+            actionInterpretation,
+            player,
+            targetMember: null,
+            stepIndex: damageInstances.length,
+            staminaSpent: damageInstances.reduce((total, hit) => total + Number(hit.stamina_cost || 0), 0)
+          });
           const roll = Math.random();
           const landed = roll <= accuracy;
           const glancing = !landed && roll <= accuracy + 0.16;
           const hitQuality = landed ? clamp(0.45 + (accuracy - roll), 0.35, 1) : glancing ? 0.22 : 0;
+          const variance = getDamageVariance();
           const damage = hitQuality > 0
-            ? Math.max(0, Math.floor(getPlayerBaseDamage(player) * multiplier * pressureShare * hitQuality) - Math.floor(targetDefense * 0.25))
+            ? Math.max(0, Math.floor(getPlayerBaseDamage(player) * multiplier * pressureShare * hitQuality * variance) - Math.floor(targetDefense * 0.25))
             : 0;
 
           damageInstances.push({
@@ -2827,8 +2957,10 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
             landed,
             glancing,
             hit_quality: Number(hitQuality.toFixed(2)),
+            damage_variance: Number(variance.toFixed(2)),
             damage_dealt: damage,
-            intended_status_effect: component.intended_status_effect
+            intended_status_effect: component.intended_status_effect,
+            stamina_cost: component.stamina_cost
           });
 
           return sum + damage;
@@ -2949,7 +3081,8 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
         nextHp = Math.max(0, player.hp - enemyDamage);
         eventFeedback.world_reaction = {
           code: "blocked_by_active_enemy",
-          blocked: true
+          blocked: true,
+          ai_world_directive: aiWorldDirective
         };
         eventFeedback.combat = {
           player_attempt: actionInput,
@@ -2958,27 +3091,53 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
           enemy_damage_dealt: enemyDamage,
           defeated: false
         };
-      } else if (player.current_floor >= 10) {
+      } else if (aiWorldDirective.route_result.movement === "blocked" || aiWorldDirective.outcome_key === "blocked") {
+        eventFeedback.world_reaction = {
+          code: "route_blocked",
+          blocked: true,
+          ai_world_directive: aiWorldDirective
+        };
+      } else if (aiWorldDirective.route_result.movement === "stay" || aiWorldDirective.outcome_key === "stay_in_area") {
+        eventFeedback.world_reaction = {
+          code: "area_held",
+          ai_world_directive: aiWorldDirective
+        };
+      } else if (player.current_floor >= 10 || aiWorldDirective.route_result.movement === "gateway" || aiWorldDirective.outcome_key === "gateway_advance") {
         nextDungeonLevel = Math.min(100, nextDungeonLevel + 1);
         nextFloor = nextDungeonLevel >= 100 && player.current_floor >= 10 ? 10 : 1;
         eventFeedback.world_reaction = {
           code: "level_gateway_opened",
           next_dungeon_level: nextDungeonLevel,
-          next_floor: nextFloor
+          next_floor: nextFloor,
+          ai_world_directive: aiWorldDirective
         };
       } else {
         nextFloor += 1;
         eventFeedback.world_reaction = {
           code: "floor_advanced",
-          next_floor: nextFloor
+          next_floor: nextFloor,
+          ai_world_directive: aiWorldDirective
         };
       }
     } else if (mechanicKey === "rest") {
-      const recovery = Math.max(4, player.stamina_stat * 2);
+      const restState = aiWorldDirective.rest_result.state;
+      const recoveryMultiplier = restState === "interrupted"
+        ? 0
+        : restState === "uneasy"
+          ? 0.5
+          : 1;
+      const recovery = Math.floor(Math.max(4, player.stamina_stat * 2) * recoveryMultiplier);
       nextHp = Math.min(nextMaxHp, player.hp + recovery);
       eventFeedback.recovery = {
         hp_recovered: nextHp - player.hp,
-        recovery_complete: nextHp === nextMaxHp
+        recovery_complete: nextHp === nextMaxHp,
+        interrupted: restState === "interrupted",
+        rest_state: restState,
+        ai_world_directive: aiWorldDirective
+      };
+      eventFeedback.world_reaction = {
+        code: restState === "interrupted" ? "rest_interrupted" : restState === "uneasy" ? "rest_uneasy" : "rest_safe",
+        ai_world_directive: aiWorldDirective
       };
     } else if (mechanicKey === "defend") {
       if (enemy && state.enemy_hp > 0) {
@@ -2995,13 +3154,17 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
     } else if (mechanicKey === "hide") {
       eventFeedback.world_reaction = {
         code: "hide_attempt",
-        threat_present: !!(enemy && state.enemy_hp > 0)
+        threat_present: !!(enemy && state.enemy_hp > 0),
+        stealth_state: aiWorldDirective.stealth_result.state,
+        ai_world_directive: aiWorldDirective
       };
     } else if (mechanicKey === "appraise" || mechanicKey === "look" || mechanicKey === "typed") {
       eventFeedback.world_reaction = {
-        code: "observation",
+        code: aiWorldDirective.discovery.found ? "discovery" : aiWorldDirective.outcome_key === "world_pressure" ? "world_pressure" : "observation",
         source_action_key: actionKey,
-        source_mechanic_key: mechanicKey
+        source_mechanic_key: mechanicKey,
+        discovery: aiWorldDirective.discovery,
+        ai_world_directive: aiWorldDirective
       };
     }
 
@@ -3059,13 +3222,14 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
       [
         player.id,
         defeatedEnemy ? "combat_victory" : "action",
-        actionInterpretation.intent || actionInput,
+        aiWorldDirective.memory_summary || actionInterpretation.intent || actionInput,
         defeatedEnemy ? 3 : 1,
         JSON.stringify({
           action_key: actionKey,
           mechanic_key: mechanicKey,
           player_action: actionInput,
           interpretation: actionInterpretation,
+          ai_world_directive: aiWorldDirective,
           location: getLocationPayload(floor),
           enemy: defeatedEnemy ? getEnemySnapshot(defeatedEnemy, state.enemy_count, 0) : null
         })
