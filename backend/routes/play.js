@@ -10,6 +10,71 @@ const {
   getPlayerSkillContext
 } = require("../services/skillEngine");
 
+function buildTurnFlowSuggestions({ player, enemy, eventFeedback }) {
+  if (!enemy || Number(enemy.hp || 0) <= 0) return null;
+
+  const enemyHpRatio = enemy.max_hp
+    ? Number(enemy.hp || 0) / Math.max(1, Number(enemy.max_hp || 1))
+    : 1;
+  const playerHpRatio = player.max_hp
+    ? Number(player.hp || 0) / Math.max(1, Number(player.max_hp || 1))
+    : 1;
+  const members = Array.isArray(enemy.members) ? enemy.members : [];
+  const statuses = members.flatMap((member) => Array.isArray(member.statuses) ? member.statuses : []);
+  const statusKeys = statuses.map((status) => String(status?.key || ""));
+  const exposed = statusKeys.some((key) => ["stagger", "knockdown", "pin", "blind", "disarm"].includes(key));
+  const injured = statusKeys.some((key) => key.startsWith("injured_") || ["bleed", "break_limb", "burn", "poison"].includes(key));
+  const behaviorText = JSON.stringify(enemy.behavior || {}).toLowerCase();
+  const hazardName = enemy.biome_hazard?.name || enemy.biome_hazard?.hazard_key || null;
+  const lastCombat = eventFeedback?.combat || null;
+  const enemyHitBack = Number(lastCombat?.enemy_damage_dealt || 0) > 0;
+  const playerLanded = Number(lastCombat?.player_damage_dealt || 0) > 0;
+
+  let safeReset = playerHpRatio <= 0.35 || enemyHitBack
+    ? "break distance and stabilize"
+    : "reset footing before overcommitting";
+  let control = "disrupt enemy recovery or momentum";
+  let pressure = "test guard with steady pressure";
+  let finish = "wait for confirmed weakness";
+
+  if (behaviorText.includes("immobil") || behaviorText.includes("bind") || behaviorText.includes("snare")) {
+    safeReset = "clear binding angles first";
+    control = "deny the snare and force movement";
+  } else if (behaviorText.includes("break") || behaviorText.includes("armor") || behaviorText.includes("terrain")) {
+    safeReset = "leave the crushing line";
+    control = "attack balance before force";
+  } else if (behaviorText.includes("ambush") || behaviorText.includes("stealth")) {
+    safeReset = "keep sightline and cover";
+    control = "flush it out before chasing";
+  }
+
+  if (hazardName) {
+    safeReset = `reset away from ${hazardName}`;
+  }
+
+  if (exposed) {
+    control = "keep it exposed and off rhythm";
+    pressure = "maintain aggression during instability";
+    finish = "strike decisively in the weakness window";
+  } else if (injured || enemyHpRatio <= 0.5 || playerLanded) {
+    pressure = "press the damaged side";
+    finish = enemyHpRatio <= 0.3 ? "commit to a clean finishing blow" : "build toward a finishing window";
+  }
+
+  if (members.length > 1) {
+    safeReset = "avoid being surrounded";
+    control = "isolate one target";
+    pressure = "pressure the nearest opening";
+  }
+
+  return {
+    safe_reset: safeReset,
+    control,
+    pressure,
+    finish
+  };
+}
+
 // Loads the player's current persisted dungeon scene.
 router.get("/current", authenticateToken, async function getCurrentState(req, res) {
   function parseJson(value, fallback = null) {
@@ -645,6 +710,13 @@ router.get("/current", authenticateToken, async function getCurrentState(req, re
       );
     }
 
+    const playerSnapshot = getPlayerSnapshot(player);
+    const turnFlowSuggestions = buildTurnFlowSuggestions({
+      player: playerSnapshot,
+      enemy: enemyPayload,
+      eventFeedback: persistedFeedback
+    });
+
     return {
       message: persistedFeedback?.message || "play_state_ready",
       scene,
@@ -655,8 +727,9 @@ router.get("/current", authenticateToken, async function getCurrentState(req, re
         biome: location.biome,
         time_of_day: getTimeOfDay(player.current_hour)
       },
-      player: getPlayerSnapshot(player),
+      player: playerSnapshot,
       enemy: enemyPayload,
+      turn_flow_suggestions: turnFlowSuggestions,
       event_feedback: persistedFeedback
     };
   }
@@ -1326,6 +1399,13 @@ router.post("/start", authenticateToken, async function startGame(req, res) {
       );
     }
 
+    const playerSnapshot = getPlayerSnapshot(player);
+    const turnFlowSuggestions = buildTurnFlowSuggestions({
+      player: playerSnapshot,
+      enemy: enemyPayload,
+      eventFeedback: persistedFeedback
+    });
+
     return {
       message: persistedFeedback?.message || "play_state_ready",
       scene,
@@ -1336,8 +1416,9 @@ router.post("/start", authenticateToken, async function startGame(req, res) {
         biome: location.biome,
         time_of_day: getTimeOfDay(player.current_hour)
       },
-      player: getPlayerSnapshot(player),
+      player: playerSnapshot,
       enemy: enemyPayload,
+      turn_flow_suggestions: turnFlowSuggestions,
       event_feedback: persistedFeedback
     };
   }
@@ -1540,7 +1621,7 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
       return value.slice(0, 4).map((item) => ({
         from_step: Number(item?.from_step) || null,
         to_step: Number(item?.to_step) || null,
-        dependency: cleanString(item?.dependency)
+        dependency: cleanString(item?.dependency).replace(/\b(if|when|until|after it|once it)\b.*$/i, "same_action_flow")
       })).filter((item) => item.from_step || item.to_step || item.dependency);
     }
 
@@ -1553,9 +1634,6 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
         const comboRole = cleanString(component?.combo_role, index === 0 ? "primary" : "follow_up");
         const step = Number.isInteger(Number(component?.step)) ? Number(component.step) : index + 1;
         const staminaCost = clamp(Number(component?.stamina_cost) || 1, 1, 10);
-        const requiresSuccessOfStep = component?.requires_success_of_step === null || component?.requires_success_of_step === undefined
-          ? null
-          : Number(component.requires_success_of_step) || null;
 
         return {
           step,
@@ -1569,7 +1647,7 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
           damage_profile: ["blunt", "slash", "pierce", "environment", "unarmed", "none"].includes(damageProfile) ? damageProfile : "none",
           stamina_cost: staminaCost,
           combo_role: ["primary", "secondary", "setup", "finisher", "follow_up"].includes(comboRole) ? comboRole : "follow_up",
-          requires_success_of_step: requiresSuccessOfStep
+          requires_success_of_step: null
         };
       });
     }
@@ -1917,6 +1995,66 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
     return Number(targetMember?.stats?.[statKey] || fallback);
   }
 
+  function buildCombatSnapshot({ player, enemy, activeMembers, targetMember, state }) {
+    return {
+      player: getPlayerSnapshot(player),
+      enemy: enemy
+        ? {
+            id: enemy.id,
+            enemy_key: enemy.enemy_key,
+            name: enemy.name,
+            hp: state.enemy_hp,
+            count: state.enemy_count,
+            attack: enemy.scaled_attack,
+            defense: enemy.scaled_defense,
+            abilities: parseJson(enemy.abilities_json, []),
+            behavior: parseJson(enemy.behavior_json, {}),
+            mutations: parseJson(enemy.mutation_json, {})
+          }
+        : null,
+      target_member: targetMember
+        ? {
+            id: targetMember.id,
+            enemy_key: targetMember.enemy_key,
+            display_name: targetMember.display_name,
+            hp: targetMember.hp,
+            max_hp: targetMember.max_hp,
+            attack: targetMember.attack,
+            defense: targetMember.defense,
+            stats: targetMember.stats,
+            phase: targetMember.phase,
+            statuses: Array.isArray(targetMember.statuses) ? [...targetMember.statuses] : [],
+            resistances: targetMember.resistances,
+            weaknesses: targetMember.weaknesses,
+            abilities: targetMember.abilities,
+            mutations: targetMember.mutations,
+            behavior: targetMember.behavior
+          }
+        : null,
+      active_members: activeMembers.map((member) => ({
+        id: member.id,
+        enemy_key: member.enemy_key,
+        display_name: member.display_name,
+        hp: member.hp,
+        max_hp: member.max_hp,
+        attack: member.attack,
+        defense: member.defense,
+        statuses: Array.isArray(member.statuses) ? [...member.statuses] : []
+      })),
+      exposure: {
+        statuses: targetMember?.statuses || [],
+        hp_ratio: targetMember?.max_hp ? Number((Number(targetMember.hp || 0) / Number(targetMember.max_hp || 1)).toFixed(2)) : null
+      },
+      environment: {
+        biome_hazard: state.biome_hazard || parseJson(state.biome_hazard_json, null)
+      },
+      phases: {
+        player_action_phase: "resolve_atomic_first",
+        enemy_reaction_phase: "after_player_action_only"
+      }
+    };
+  }
+
   function getComponentAccuracy({ component, actionInterpretation, player, targetMember, stepIndex, staminaSpent }) {
     const enemyDexterity = getTargetStat(targetMember, "dexterity", 5);
     const enemyWisdom = getTargetStat(targetMember, "wisdom", 2);
@@ -1939,70 +2077,26 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
     return clamp(accuracy, 0.15, 0.9);
   }
 
-  function getInterruptionChance({ component, actionInterpretation, player, targetMember, stepIndex, hitQuality, statusEffectsApplied, staminaSpent }) {
-    const enemyDexterity = getTargetStat(targetMember, "dexterity", 5);
-    const enemyStrength = getTargetStat(targetMember, "strength", 5);
-    const playerDexterity = Number(player.dexterity_stat || 1);
-    const playerStamina = Number(player.stamina_stat || 1);
-    const impairingStatuses = statusEffectsApplied.filter((status) => (
-      ["blind", "stagger", "break_limb", "disarm", "knockdown", "pin"].includes(status.key)
-    )).length;
-    let chance = 0.1 + (stepIndex * 0.07) + ((enemyDexterity + enemyStrength - playerDexterity) * 0.015);
-
-    if (hitQuality <= 0) chance += 0.18;
-    if (component.action_type === "finisher") chance += 0.08;
-    if (actionInterpretation.risk_level === "high") chance += 0.08;
-    if (actionInterpretation.combat_posture === "reckless") chance += 0.08;
-    chance += Math.max(0, staminaSpent - playerStamina) * 0.03;
-    chance -= impairingStatuses * 0.09;
-
-    return clamp(chance, 0.03, 0.65);
-  }
-
-  function resolveCombatChain({ player, targetMember, enemy, combatComponents, actionInterpretation, targetDefense }) {
+  function resolveCombatChain({ player, targetMember, enemy, combatComponents, actionInterpretation, targetDefense, combatSnapshot }) {
     const damageInstances = [];
     const statusEffectsApplied = [];
-    const stepResults = new Map();
     const baseDamage = getPlayerBaseDamage(player);
-    const enemyMaxHp = Number(targetMember?.max_hp || enemy?.scaled_hp || 1);
-    let nextTargetHp = Number(targetMember?.hp || 0);
+    const snapshotTarget = combatSnapshot?.target_member || targetMember;
+    const enemyMaxHp = Number(snapshotTarget?.max_hp || enemy?.scaled_hp || 1);
+    const startingTargetHp = Number(snapshotTarget?.hp || 0);
+    const snapshotStatuses = Array.isArray(snapshotTarget?.statuses) ? snapshotTarget.statuses : [];
+    const snapshotExposed = snapshotStatuses.some((status) => (
+      ["stagger", "knockdown", "pin", "blind", "disarm"].includes(status.key)
+    ));
+    let nextTargetHp = startingTargetHp;
     let playerDamage = 0;
     let staminaSpent = 0;
     let successfulSteps = 0;
-    let interrupted = false;
-    let interruptionStep = null;
-    let interruptionReason = null;
 
     for (let index = 0; index < combatComponents.length; index += 1) {
       const component = combatComponents[index];
-      const stepIndex = index + 1;
-      const dependencyStep = component.requires_success_of_step;
-      const dependencyResult = dependencyStep ? stepResults.get(Number(dependencyStep)) : null;
 
       if (nextTargetHp <= 0) break;
-
-      if (dependencyStep && !dependencyResult?.landed) {
-        damageInstances.push({
-          step: component.step,
-          action_type: component.action_type,
-          type: component.type,
-          description: component.description,
-          target_area: component.target_area,
-          weapon_source: component.weapon_source,
-          damage_profile: component.damage_profile,
-          accuracy: 0,
-          roll: null,
-          landed: false,
-          interrupted: false,
-          skipped: true,
-          skip_reason: `requires_step_${dependencyStep}_success`,
-          damage_dealt: 0,
-          intended_status_effect: component.intended_status_effect,
-          hp_after: nextTargetHp
-        });
-        stepResults.set(component.step, { landed: false, skipped: true });
-        continue;
-      }
 
       staminaSpent += clamp(Number(component.stamina_cost || 1), 1, 10);
 
@@ -2010,7 +2104,7 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
         component,
         actionInterpretation,
         player,
-        targetMember,
+        targetMember: snapshotTarget,
         stepIndex: index,
         staminaSpent
       });
@@ -2026,11 +2120,11 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
       const environmentBonus = component.action_type === "environment" || component.damage_profile === "environment"
         ? Math.floor(Number(player.intelligence_stat || 1) / 2)
         : 0;
-      const stepPressureShare = clamp((0.9 / combatComponents.length) + (successfulSteps * 0.06), 0.18, 0.75);
+      const stepPressureShare = clamp(0.9 / combatComponents.length, 0.18, 0.75);
       const statusFocusPenalty = component.action_type === "status" || component.intended_status_effect ? 0.65 : 1;
       const finisherAllowed = component.action_type !== "finisher" && component.combo_role !== "finisher"
         ? true
-        : nextTargetHp <= Math.floor(enemyMaxHp * 0.35) || successfulSteps >= 2;
+        : startingTargetHp <= Math.floor(enemyMaxHp * 0.35) || snapshotExposed;
       const finisherPenalty = finisherAllowed ? 1 : 0.45;
       const canDamage = component.damage_profile !== "none" || ["attack", "environment", "finisher", "status"].includes(component.action_type);
       const variance = getDamageVariance();
@@ -2083,33 +2177,11 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
         damage_variance: Number(variance.toFixed(2)),
         finisher_allowed: finisherAllowed,
         interrupted: false,
+        skipped: false,
         damage_dealt: damage,
         intended_status_effect: component.intended_status_effect,
         hp_after: nextTargetHp
       });
-      stepResults.set(component.step, { landed, glancing, damage });
-
-      if (nextTargetHp > 0 && index < combatComponents.length - 1) {
-        const interruptionChance = getInterruptionChance({
-          component,
-          actionInterpretation,
-          player,
-          targetMember,
-          stepIndex: index,
-          hitQuality,
-          statusEffectsApplied,
-          staminaSpent
-        });
-
-        if (Math.random() < interruptionChance) {
-          interrupted = true;
-          interruptionStep = component.step;
-          interruptionReason = landed ? "enemy_recovered_between_combo_steps" : "enemy_countered_failed_sequence";
-          damageInstances[damageInstances.length - 1].interrupted = true;
-          damageInstances[damageInstances.length - 1].interruption_chance = Number(interruptionChance.toFixed(2));
-          break;
-        }
-      }
     }
 
     return {
@@ -2119,9 +2191,10 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
       playerDamage,
       staminaSpent,
       successfulSteps,
-      interrupted,
-      interruptionStep,
-      interruptionReason
+      interrupted: false,
+      interruptionStep: null,
+      interruptionReason: null,
+      combatSnapshot
     };
   }
 
@@ -2760,6 +2833,13 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
       can_type: canType
     };
 
+    const playerSnapshot = getPlayerSnapshot(player);
+    const turnFlowSuggestions = buildTurnFlowSuggestions({
+      player: playerSnapshot,
+      enemy: context.enemy,
+      eventFeedback: context.event_feedback
+    });
+
     return {
       message: context.event_feedback?.message || "play_state_ready",
       scene,
@@ -2770,8 +2850,9 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
         biome: location.biome,
         time_of_day: getTimeOfDay(player.current_hour)
       },
-      player: getPlayerSnapshot(player),
+      player: playerSnapshot,
       enemy: context.enemy,
+      turn_flow_suggestions: turnFlowSuggestions,
       event_feedback: context.event_feedback
     };
   }
@@ -2863,6 +2944,13 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
         ? state.encounter_members.filter((member) => !member.is_defeated && member.hp > 0)
         : [];
       const targetMember = activeMembers[0] || null;
+      const combatSnapshot = buildCombatSnapshot({
+        player,
+        enemy,
+        activeMembers,
+        targetMember,
+        state
+      });
       const targetDefense = targetMember ? targetMember.defense : enemy.scaled_defense;
       const combatComponents = actionInterpretation.combat_components.length
         ? actionInterpretation.combat_components
@@ -2881,7 +2969,8 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
           enemy,
           combatComponents,
           actionInterpretation,
-          targetDefense
+          targetDefense,
+          combatSnapshot
         });
         damageInstances.push(...chainResolution.damageInstances);
         statusEffectsApplied.push(...chainResolution.statusEffectsApplied);
@@ -2976,9 +3065,9 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
         const impairmentPenalty = statusEffectsApplied.reduce((sum, status) => (
           ["blind", "stagger", "break_limb", "disarm", "knockdown", "pin"].includes(status.key) ? sum + 2 : sum
         ), 0);
-        const interruptionPenalty = chainResolution?.interrupted ? 0 : impairmentPenalty;
+        const reactionImpairmentPenalty = impairmentPenalty;
 
-        enemyDamage = Math.max(0, groupAttack - getPlayerDamageMitigation(player) - interruptionPenalty);
+        enemyDamage = Math.max(0, groupAttack - getPlayerDamageMitigation(player) - reactionImpairmentPenalty);
       }
 
       if (nextEnemyHp <= 0) {
@@ -2987,6 +3076,9 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
         nextExp += expGained;
         eventFeedback.combat = {
           player_attempt: actionInput,
+          resolution_model: "atomic_snapshot_phases",
+          phase_order: ["player_action", "enemy_reaction"],
+          combat_snapshot: combatSnapshot,
           target_member: targetMember,
           damage_instances: damageInstances,
           status_effects_applied: statusEffectsApplied,
@@ -2995,9 +3087,10 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
           chain_resolution: {
             successful_steps: chainResolution?.successfulSteps || damageInstances.filter((hit) => hit.landed).length,
             attempted_steps: combatComponents.length,
-            interrupted: chainResolution?.interrupted || false,
-            interruption_step: chainResolution?.interruptionStep || null,
-            interruption_reason: chainResolution?.interruptionReason || null
+            interrupted: false,
+            interruption_step: null,
+            interruption_reason: null,
+            conditional_chaining_allowed: false
           },
           combat_identity: {
             family: actionInterpretation.combat_family,
@@ -3010,7 +3103,7 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
             skill_hooks: actionInterpretation.procedural_skill_hooks
           },
           positional_advantage: statusEffectsApplied.some((status) => ["blind", "stagger", "knockdown", "pin"].includes(status.key)),
-          player_chain_interrupted: chainResolution?.interrupted || false,
+          player_chain_interrupted: false,
           interrupted_enemy_action: true,
           player_damage_dealt: playerDamage,
           enemy_damage_dealt: 0,
@@ -3043,6 +3136,9 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
         nextHp = Math.max(0, player.hp - enemyDamage);
         eventFeedback.combat = {
           player_attempt: actionInput,
+          resolution_model: "atomic_snapshot_phases",
+          phase_order: ["player_action", "enemy_reaction"],
+          combat_snapshot: combatSnapshot,
           target_member: targetMember,
           enemy_reaction_code: "counterattack",
           damage_instances: damageInstances,
@@ -3052,9 +3148,10 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
           chain_resolution: {
             successful_steps: chainResolution?.successfulSteps || damageInstances.filter((hit) => hit.landed).length,
             attempted_steps: combatComponents.length,
-            interrupted: chainResolution?.interrupted || false,
-            interruption_step: chainResolution?.interruptionStep || null,
-            interruption_reason: chainResolution?.interruptionReason || null
+            interrupted: false,
+            interruption_step: null,
+            interruption_reason: null,
+            conditional_chaining_allowed: false
           },
           combat_identity: {
             family: actionInterpretation.combat_family,
@@ -3067,7 +3164,7 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
             skill_hooks: actionInterpretation.procedural_skill_hooks
           },
           positional_advantage: statusEffectsApplied.some((status) => ["blind", "stagger", "knockdown", "pin"].includes(status.key)),
-          player_chain_interrupted: chainResolution?.interrupted || false,
+          player_chain_interrupted: false,
           interrupted_enemy_action: statusEffectsApplied.some((status) => ["blind", "stagger", "break_limb", "disarm", "knockdown", "pin"].includes(status.key)),
           player_damage_dealt: playerDamage,
           enemy_damage_dealt: enemyDamage,

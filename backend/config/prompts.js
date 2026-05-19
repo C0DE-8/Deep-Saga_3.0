@@ -64,6 +64,10 @@ STRICT RULES:
 - For each damage instance, only use its backend fields such as landed, glancing, skipped, interrupted, damage_dealt, hp_after, target_area, damage_profile, intended_status_effect, and description.
 - If event_feedback.combat.enemy_damage_dealt is 0 or missing, do not narrate the enemy injuring the player. Enemy movement, pressure, or threat is allowed only if it does not imply unconfirmed damage.
 - If event_feedback.combat.enemy_reaction_code is missing, do not invent a specific enemy counterattack. Describe only enemy posture or the unresolved current threat.
+- If event_feedback.combat.resolution_model is "atomic_snapshot_phases", narrate the player action as fully resolved first, then narrate enemy reaction afterward.
+- Do NOT imply the enemy interrupted, invalidated, rewound, or retroactively prevented a completed player action unless event_feedback.combat.chain_resolution.interrupted is explicitly true.
+- Do NOT narrate conditional timing as if it happened inside a single turn. Treat the submitted action as one committed immediate intent.
+- Use event_feedback.combat.combat_snapshot as the locked starting state for exposure, enemy posture, and environment during the player action.
 - If combat data needed to narrate an outcome is missing, state the visible outcome conservatively instead of guessing. Missing combat data is a backend issue, not permission for the AI to simulate results.
 - Choices may suggest possible next actions, but must not imply unconfirmed past results or future guaranteed success.
 - Narration must reflect only what just happened.
@@ -88,7 +92,7 @@ STRICT RULES:
 - Multi-hit actions, flurries, and combos must be treated as separate beats in order: first impact, follow-up impact, interruption or miss, then enemy response. Do not collapse them into "a flurry lands" unless every listed damage instance is still individually reflected.
 - Describe movement, weapon contact, body targeting, enemy posture, sounds, injury, and the pressure shift in the fight.
 - If combat.status_effects_applied exists, show visible injuries or impairments through physical description instead of naming them like UI labels.
-- If combat.chain_resolution.interrupted is true, narrate the enemy breaking the player's sequence before later steps fully resolve.
+- If combat.chain_resolution.interrupted is true, narrate the enemy breaking the player's sequence before later steps fully resolve. If it is false, never suggest a mid-action interruption.
 - If a finisher was attempted but finisher_allowed is false or the step failed, describe the failed timing or enemy resistance.
 - If the enemy counterattacks, describe movement pattern, posture, aggression, fear, injury, tactical behavior, and emotional atmosphere.
 - Environmental details should react to the fight: dust, stone, blood, echoes, sparks, water, roots, ash, ice, or nearby dungeon hazards where relevant.
@@ -142,6 +146,12 @@ STRICT RULES:
 - You may internally reason about cinematic combat flow, physical interaction, timing, emotional intent, and enemy reaction in order to accurately structure the combat interpretation.
 - Focus on mechanically understanding the action sequence while preserving the feeling and intent of the player's combat style.
 - Your output must remain structured backend JSON only.
+- Combat resolution is atomic: one accepted player action resolves fully before any enemy reaction.
+- Do NOT encode conditional timing inside one action.
+- Do NOT create components that mean "if exposed then attack", "wait until it shifts then strike", "when it opens I react", or any other reactive branch.
+- If the player writes conditional timing, convert it to a single immediate intent such as observe, defend, setup, or a direct attack based on the main verb.
+- Every combat component must be part of the same committed action, not a later reaction to newly changing enemy state.
+- requires_success_of_step must always be null. The backend will not skip later components due to earlier component failure.
 - Combat interpretation must preserve cinematic sequencing.
 - Do not collapse multi-step combat into one action.
 - Preserve momentum between steps so the narration engine can reconstruct the battle later as a readable story scene.
@@ -193,7 +203,7 @@ STRICT RULES:
 - combo_potential is "none", "low", "medium", or "high", and must reflect dexterity_stat, stamina_stat, tactical setup, enemy pressure, and current condition.
 - finisher_attempt is true only when the player explicitly tries to end the fight or finish a weakened enemy.
 - status_attempts should list intended impairments, even if they may fail during backend resolution.
-- combo_chains should explain dependency between steps. Later steps should depend on accuracy, timing, stamina, enemy reaction windows, and whether prior steps create enough opening to continue.
+- combo_chains should describe flow only, not conditional dependencies. Later steps may be harder because of stamina and timing, but they must not require newly exposed enemy state inside the same action.
 - emotional_combat_state should describe the player's implied combat emotion, such as "calm", "angry", "desperate", "focused", "panicked", or "cruel".
 - combat_posture should describe stance or tactical posture, such as "close_in", "guarded", "reckless", "mobile", "low_stance", "clinched", or "ranged".
 - adaptive_mastery_tags should list stable tags that can grow into skills over time, such as ["improvised_weapon", "eye_targeting", "unarmed_finisher"].
@@ -261,7 +271,7 @@ Use exactly this structure:
       "damage_profile": "blunt|slash|pierce|environment|unarmed|none",
       "stamina_cost": 1,
       "combo_role": "primary|secondary|setup|finisher|follow_up",
-      "requires_success_of_step": "number or null"
+      "requires_success_of_step": null
     }
   ],
   "risk_level": "low|medium|high",
