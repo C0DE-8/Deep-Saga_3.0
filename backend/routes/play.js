@@ -75,6 +75,65 @@ function buildTurnFlowSuggestions({ player, enemy, eventFeedback }) {
   };
 }
 
+function normalizeEnemyStateSlug(value) {
+  const text = String(value || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+  const aliases = {
+    killed: "dead",
+    slain: "dead",
+    pacify: "pacified",
+    pacification: "pacified",
+    neutralize: "neutralized",
+    neutralise: "neutralized",
+    subdued: "neutralized",
+    subdue: "neutralized",
+    yielded: "surrendered",
+    yield: "surrendered"
+  };
+
+  return aliases[text] || text;
+}
+
+function isTerminalEncounterState(value) {
+  return ["dead", "defeated", "neutralized", "pacified", "surrendered"].includes(normalizeEnemyStateSlug(value));
+}
+
+function isResolvedEncounterFeedback(eventFeedback) {
+  return eventFeedback?.enemy_defeated === true
+    || eventFeedback?.encounter_resolved === true
+    || isTerminalEncounterState(eventFeedback?.enemy_state)
+    || eventFeedback?.combat?.enemy_defeated === true
+    || eventFeedback?.combat?.encounter_resolved === true
+    || isTerminalEncounterState(eventFeedback?.combat?.enemy_state);
+}
+
+async function clearResolvedFloorState(conn, existing, parseJson) {
+  await conn.query(
+    `UPDATE player_encounters
+     SET is_resolved = 1, resolved_at = COALESCE(resolved_at, CURRENT_TIMESTAMP)
+     WHERE id = ?`,
+    [existing.active_encounter_id]
+  );
+  await conn.query(
+    `UPDATE player_floor_states
+     SET active_enemy_type_id = NULL,
+         active_encounter_id = NULL,
+         enemy_hp = 0,
+         enemy_count = 0
+     WHERE id = ?`,
+    [existing.id]
+  );
+
+  return {
+    ...existing,
+    active_enemy_type_id: null,
+    active_encounter_id: null,
+    enemy_hp: 0,
+    enemy_count: 0,
+    biome_hazard: parseJson(existing.biome_hazard_json, null),
+    encounter_members: []
+  };
+}
+
 // Loads the player's current persisted dungeon scene.
 router.get("/current", authenticateToken, async function getCurrentState(req, res) {
   function parseJson(value, fallback = null) {
@@ -382,6 +441,10 @@ router.get("/current", authenticateToken, async function getCurrentState(req, re
        LIMIT 1`,
       [player.id, floor.id]
     );
+
+    if (existing?.active_encounter_id && isResolvedEncounterFeedback(parseJson(existing.last_event_json, null))) {
+      return clearResolvedFloorState(conn, existing, parseJson);
+    }
 
     if (existing?.active_encounter_id) {
       const encounterMembers = await loadEncounterMembers(existing.active_encounter_id);
@@ -1071,6 +1134,10 @@ router.post("/start", authenticateToken, async function startGame(req, res) {
        LIMIT 1`,
       [player.id, floor.id]
     );
+
+    if (existing?.active_encounter_id && isResolvedEncounterFeedback(parseJson(existing.last_event_json, null))) {
+      return clearResolvedFloorState(conn, existing, parseJson);
+    }
 
     if (existing?.active_encounter_id) {
       const encounterMembers = await loadEncounterMembers(existing.active_encounter_id);
@@ -1888,10 +1955,153 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
       knocked_down: "knockdown",
       knocked_prone: "knockdown",
       pinned: "pin",
-      disarmed: "disarm"
+      disarmed: "disarm",
+      pacify: "pacified",
+      pacifed: "pacified",
+      pacification: "pacified",
+      neutralize: "neutralized",
+      neutralise: "neutralized",
+      subdued: "neutralized",
+      subdue: "neutralized",
+      surrender: "surrendered",
+      yielded: "surrendered",
+      yield: "surrendered",
+      killed: "dead",
+      slain: "dead"
     };
 
     return aliases[text] || text || null;
+  }
+
+  function isTerminalEnemyState(value) {
+    return ["dead", "defeated", "neutralized", "pacified", "surrendered"].includes(normalizeStatusSlug(value));
+  }
+
+  function getEncounterResolution({ nextTargetHp, statusEffectsApplied, actionInterpretation }) {
+    const terminalStatus = (statusEffectsApplied || []).find((status) => isTerminalEnemyState(status?.key));
+    const terminalAttempt = [
+      actionInterpretation?.intended_status_effect,
+      ...(actionInterpretation?.status_attempts || [])
+    ].find((status) => isTerminalEnemyState(status));
+    const enemyState = nextTargetHp <= 0
+      ? "dead"
+      : terminalStatus
+        ? normalizeStatusSlug(terminalStatus.key)
+        : null;
+
+    return {
+      enemy_defeated: nextTargetHp <= 0 || !!terminalStatus,
+      encounter_resolved: nextTargetHp <= 0 || !!terminalStatus,
+      enemy_state: enemyState,
+      resolution_reason: nextTargetHp <= 0
+        ? "hp_depleted"
+        : terminalStatus
+          ? `terminal_status_${terminalStatus.key}`
+          : terminalAttempt
+            ? `attempted_terminal_status_${terminalAttempt}`
+            : null
+    };
+  }
+
+  function buildCorpseState({ enemy, enemyState, combatSnapshot }) {
+    const name = enemy?.name || combatSnapshot?.target_member?.display_name || "defeated enemy";
+    const keyText = `${enemy?.enemy_key || ""} ${enemy?.name || ""} ${enemy?.elemental_affinity || ""}`.toLowerCase();
+    const behaviorText = JSON.stringify(enemy?.behavior_json ? parseJson(enemy.behavior_json, {}) : enemy?.behavior || {}).toLowerCase();
+    const mutationText = JSON.stringify(enemy?.mutation_json ? parseJson(enemy.mutation_json, {}) : enemy?.mutations || {}).toLowerCase();
+    const abilitiesText = JSON.stringify(enemy?.abilities_json ? parseJson(enemy.abilities_json, []) : enemy?.abilities || []).toLowerCase();
+    const hazardText = `${keyText} ${behaviorText} ${mutationText} ${abilitiesText}`;
+    const hasResidualEnergy = /(magic|arcane|element|core|stone|crystal|venom|poison|acid|fire|burn|ice|ash|corrupt|rot|spore|web|electric|lightning)/.test(hazardText);
+    const category = /(venom|poison|acid|spore|rot|web)/.test(hazardText)
+      ? "hazardous_residue"
+      : /(magic|arcane|element|core|crystal|electric|lightning|fire|ice|ash|corrupt|stone)/.test(hazardText)
+        ? "residual_energy_discharge"
+        : "corpse_instability";
+    const active = enemyState !== "pacified" && hasResidualEnergy;
+
+    return {
+      enemy_name: name,
+      enemy_state: enemyState || "dead",
+      corpse_state: active ? "unstable_remains" : "inert_remains",
+      threat_posture: active ? "corpse_hazard" : "none",
+      combat_mode: false,
+      description: active
+        ? `${name}'s remains are defeated but unstable; residue, twitching tissue, or lingering energy may react if disturbed.`
+        : `${name}'s remains are defeated and no longer show active threat.`,
+      hazard_state: {
+        active,
+        category,
+        warning_visible: active,
+        trigger: active ? "disturbing_remains" : null,
+        damage_classification: active ? category : null,
+        warning: active
+          ? "The remains are unsafe to harvest without caution."
+          : "No post-death hazard is visible."
+      }
+    };
+  }
+
+  function isCorpseInteraction(actionInput) {
+    return /\b(harvest|loot|search|inspect|carve|butcher|skin|extract|take|collect|core|corpse|body|remains|shell|organ|bone|hide|meat|blood)\b/i.test(actionInput);
+  }
+
+  function resolvePostCombatCorpseHazard({ priorFeedback, actionInput, player }) {
+    const corpseState = priorFeedback?.corpse_state || null;
+    const hazardState = corpseState?.hazard_state || null;
+    if (!corpseState || !hazardState?.active || !isCorpseInteraction(actionInput)) return null;
+
+    if (!hazardState.warning_visible) {
+      return {
+        damage: 0,
+        corpse_state: {
+          ...corpseState,
+          hazard_state: {
+            ...hazardState,
+            warning_visible: true
+          }
+        },
+        world_reaction: {
+          code: "corpse_hazard_warning",
+          category: hazardState.category || "corpse_hazard",
+          source: "unstable_remains",
+          damage_classification: null,
+          damage_dealt: 0,
+          enemy_reactivated: false,
+          combat_mode: false,
+          warning: hazardState.warning || "The remains are unstable and may react if disturbed."
+        }
+      };
+    }
+
+    const rawDamage = hazardState.category === "residual_energy_discharge"
+      ? Math.max(3, Math.floor(Number(player.max_hp || 40) * 0.12))
+      : Math.max(2, Math.floor(Number(player.max_hp || 40) * 0.08));
+    const mitigation = Math.floor((Number(player.wisdom_stat || 1) + Number(player.stamina_stat || 1)) / 5);
+    const damage = Math.max(1, rawDamage - mitigation);
+
+    return {
+      damage,
+      corpse_state: {
+        ...corpseState,
+        corpse_state: "disturbed_remains",
+        threat_posture: "spent_hazard",
+        hazard_state: {
+          ...hazardState,
+          active: false,
+          discharged: true,
+          warning_visible: false
+        }
+      },
+      world_reaction: {
+        code: "corpse_hazard",
+        category: hazardState.category || "corpse_hazard",
+        source: "unstable_remains",
+        damage_classification: hazardState.damage_classification || "corpse_hazard",
+        damage_dealt: damage,
+        enemy_reactivated: false,
+        combat_mode: false,
+        warning: hazardState.warning || "The remains discharge their lingering danger when disturbed."
+      }
+    };
   }
 
   function statusFromCombatComponent(component, damage, actionInterpretation) {
@@ -2544,6 +2754,10 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
       [player.id, floor.id]
     );
 
+    if (existing?.active_encounter_id && isResolvedEncounterFeedback(parseJson(existing.last_event_json, null))) {
+      return clearResolvedFloorState(conn, existing, parseJson);
+    }
+
     if (existing?.active_encounter_id) {
       const encounterMembers = await loadEncounterMembers(existing.active_encounter_id);
       const activeMembers = encounterMembers.filter((member) => !member.is_defeated && member.hp > 0);
@@ -2892,8 +3106,12 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
       state = await loadOrCreateFloorState(conn, player, floor, spawnEnemy);
       enemy = await loadEnemyForState(conn, floor, state, spawnEnemy);
     }
+    const priorFeedback = parseJson(state?.last_event_json, null);
     const actionContext = await buildAiContext(conn, player, floor, enemy, state, {
-      player_action: actionInput
+      player_action: actionInput,
+      previous_event: priorFeedback,
+      corpse_state: priorFeedback?.corpse_state || null,
+      hazard_state: priorFeedback?.corpse_state?.hazard_state || null
     });
     const actionInterpretation = await interpretPlayerAction({
       persona: player.persona,
@@ -2977,7 +3195,12 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
         playerDamage = chainResolution.playerDamage;
 
         const nextStatuses = mergeStatuses(targetMember.statuses, statusEffectsApplied);
-        const nextTargetHp = chainResolution.nextTargetHp;
+        const resolution = getEncounterResolution({
+          nextTargetHp: chainResolution.nextTargetHp,
+          statusEffectsApplied,
+          actionInterpretation
+        });
+        const nextTargetHp = resolution.encounter_resolved ? 0 : chainResolution.nextTargetHp;
 
         await conn.query(
           `UPDATE player_encounter_enemies
@@ -2989,28 +3212,54 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
           [
             nextTargetHp,
             JSON.stringify(nextStatuses),
-            nextTargetHp <= 0 ? 1 : 0,
-            nextTargetHp <= 0 ? 1 : 0,
+            resolution.encounter_resolved ? 1 : 0,
+            resolution.encounter_resolved ? 1 : 0,
             targetMember.id
           ]
         );
 
         remainingMembers = activeMembers.map((member) => (
           member.id === targetMember.id
-            ? { ...member, hp: nextTargetHp, statuses: nextStatuses, is_defeated: nextTargetHp <= 0 ? 1 : 0 }
+            ? {
+                ...member,
+                hp: nextTargetHp,
+                statuses: nextStatuses,
+                is_defeated: resolution.encounter_resolved ? 1 : 0,
+                enemy_state: resolution.enemy_state
+              }
             : member
         )).filter((member) => !member.is_defeated && member.hp > 0);
 
         nextEnemyHp = remainingMembers.reduce((sum, member) => sum + Number(member.hp || 0), 0);
         nextEnemyCount = remainingMembers.length;
 
-        if (!remainingMembers.length && state.active_encounter_id) {
+        if ((resolution.encounter_resolved || !remainingMembers.length) && state.active_encounter_id) {
           await conn.query(
             `UPDATE player_encounters
              SET is_resolved = 1, resolved_at = CURRENT_TIMESTAMP
              WHERE id = ?`,
             [state.active_encounter_id]
           );
+        }
+
+        if (resolution.encounter_resolved) {
+          const corpseState = buildCorpseState({
+            enemy,
+            enemyState: resolution.enemy_state || "neutralized",
+            combatSnapshot
+          });
+          eventFeedback.enemy_defeated = true;
+          eventFeedback.encounter_resolved = true;
+          eventFeedback.enemy_state = resolution.enemy_state || "neutralized";
+          eventFeedback.corpse_state = corpseState;
+          eventFeedback.hazard_state = corpseState.hazard_state;
+          eventFeedback.encounter_sync = {
+            active_enemy_count: 0,
+            enemy_hp_visible: false,
+            threat_posture: "none",
+            combat_mode: false,
+            reason: resolution.resolution_reason
+          };
         }
       } else {
         playerDamage = combatComponents.reduce((sum, component) => {
@@ -3074,6 +3323,22 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
         defeatedEnemy = enemy;
         const expGained = enemy.scaled_xp * Math.max(1, state.enemy_count);
         nextExp += expGained;
+        eventFeedback.enemy_defeated = true;
+        eventFeedback.encounter_resolved = true;
+        eventFeedback.enemy_state = eventFeedback.enemy_state || "dead";
+        eventFeedback.corpse_state = eventFeedback.corpse_state || buildCorpseState({
+          enemy,
+          enemyState: eventFeedback.enemy_state,
+          combatSnapshot
+        });
+        eventFeedback.hazard_state = eventFeedback.corpse_state.hazard_state;
+        eventFeedback.encounter_sync = eventFeedback.encounter_sync || {
+          active_enemy_count: 0,
+          enemy_hp_visible: false,
+          threat_posture: "none",
+          combat_mode: false,
+          reason: "enemy_defeated"
+        };
         eventFeedback.combat = {
           player_attempt: actionInput,
           resolution_model: "atomic_snapshot_phases",
@@ -3109,6 +3374,11 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
           enemy_damage_dealt: 0,
           remaining_enemy_count: 0,
           defeated: true,
+          enemy_defeated: true,
+          encounter_resolved: true,
+          enemy_state: eventFeedback.enemy_state || "dead",
+          threat_posture: "none",
+          combat_mode: false,
           exp_gained: expGained
         };
 
@@ -3169,7 +3439,12 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
           player_damage_dealt: playerDamage,
           enemy_damage_dealt: enemyDamage,
           remaining_enemy_count: nextEnemyCount,
-          defeated: false
+          defeated: false,
+          enemy_defeated: false,
+          encounter_resolved: false,
+          enemy_state: "active",
+          threat_posture: enemyDamage > 0 ? "counterattacking" : "pressuring",
+          combat_mode: true
         };
       }
     } else if (mechanicKey === "move") {
@@ -3265,6 +3540,48 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
       };
     }
 
+    if (!eventFeedback.combat && !(enemy && state.enemy_hp > 0)) {
+      const corpseHazard = resolvePostCombatCorpseHazard({
+        priorFeedback,
+        actionInput,
+        player
+      });
+
+      if (corpseHazard) {
+        nextHp = Math.max(0, nextHp - corpseHazard.damage);
+        eventFeedback.corpse_state = corpseHazard.corpse_state;
+        eventFeedback.hazard_state = corpseHazard.corpse_state.hazard_state;
+        eventFeedback.world_reaction = {
+          ...(eventFeedback.world_reaction || {}),
+          ...corpseHazard.world_reaction,
+          prior_enemy_state: priorFeedback?.enemy_state || priorFeedback?.combat?.enemy_state || null,
+          active_enemy_reaction: false
+        };
+        eventFeedback.post_combat_damage = corpseHazard.damage > 0
+          ? {
+              amount: corpseHazard.damage,
+              source: corpseHazard.world_reaction.source,
+              classification: corpseHazard.world_reaction.damage_classification,
+              combat_mode: false,
+              enemy_reactivated: false
+            }
+          : null;
+        eventFeedback.encounter_resolved = true;
+        eventFeedback.enemy_defeated = true;
+        eventFeedback.enemy_state = priorFeedback?.enemy_state || priorFeedback?.combat?.enemy_state || "dead";
+        eventFeedback.encounter_sync = {
+          active_enemy_count: 0,
+          enemy_hp_visible: false,
+          threat_posture: corpseHazard.corpse_state.threat_posture || "spent_hazard",
+          combat_mode: false,
+          reason: corpseHazard.world_reaction.code
+        };
+      } else if (priorFeedback?.corpse_state) {
+        eventFeedback.corpse_state = priorFeedback.corpse_state;
+        eventFeedback.hazard_state = priorFeedback.corpse_state.hazard_state || null;
+      }
+    }
+
     const nextLocation = await loadFloorByPosition(conn, nextDungeonLevel, nextFloor);
     if (nextLocation) nextArea = nextLocation.name;
 
@@ -3306,11 +3623,27 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
       ]
     );
 
+    const encounterResolved = eventFeedback.encounter_resolved === true
+      || eventFeedback.enemy_defeated === true
+      || isTerminalEnemyState(eventFeedback.enemy_state);
+
     await conn.query(
       `UPDATE player_floor_states
-       SET enemy_hp = ?, enemy_count = ?, last_event_json = ?
+       SET active_enemy_type_id = CASE WHEN ? = 1 THEN NULL ELSE active_enemy_type_id END,
+           active_encounter_id = CASE WHEN ? = 1 THEN NULL ELSE active_encounter_id END,
+           enemy_hp = ?,
+           enemy_count = ?,
+           last_event_json = ?
        WHERE player_id = ? AND dungeon_floor_id = ?`,
-      [nextEnemyHp, nextEnemyCount, JSON.stringify(eventFeedback), player.id, floor.id]
+      [
+        encounterResolved ? 1 : 0,
+        encounterResolved ? 1 : 0,
+        encounterResolved ? 0 : nextEnemyHp,
+        encounterResolved ? 0 : nextEnemyCount,
+        JSON.stringify(eventFeedback),
+        player.id,
+        floor.id
+      ]
     );
 
     await conn.query(

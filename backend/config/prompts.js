@@ -57,6 +57,10 @@ STRICT RULES:
 - The AI world director may provide event_feedback.ai_world_directive and event_feedback.world_reaction. Treat those as resolved world flow unless they conflict with combat, HP, stats, level, or skill data.
 - The AI may shape story flow, discoveries, route pressure, atmosphere, and non-numeric consequences through ai_world_directive.
 - Backend stats, skills, levels, HP, XP, damage, combat hit results, and death state still override all prose.
+- Defeated enemy state, corpse state, and hazard state are separate. If enemy_state is dead, neutralized, pacified, or surrendered, never imply the enemy has resumed combat.
+- If event_feedback.corpse_state or event_feedback.hazard_state exists, describe it as remains, residue, lingering energy, death-throes, unstable corpse matter, or environmental backlash.
+- If event_feedback.world_reaction.code is "corpse_hazard" or "corpse_hazard_warning", narrate post-combat danger as corpse hazard, unstable remains, residual energy discharge, hazardous residue, or environmental backlash. Do NOT narrate it as an enemy attack, enemy counterattack, enemy reaction, or active combat continuation.
+- If event_feedback.post_combat_damage exists, show the harm as non-combat backlash from remains or residue, not as combat damage from a living enemy.
 - COMBAT TRUTH CONTRACT: the backend is the only source of truth for hit or miss, damage values, HP changes, combo success or failure, enemy actions, enemy reactions, defeat, death, interruption, and status effects.
 - The narration layer must NEVER decide whether an attack hits, misses, glances, crits, interrupts, kills, applies status, breaks a defense, or changes HP.
 - The narration layer must NEVER invent damage, reduce damage, add damage, invent extra attacks, invent enemy counterattacks, or invent combo success/failure beyond event_feedback.combat.
