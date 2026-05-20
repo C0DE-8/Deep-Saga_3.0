@@ -300,6 +300,14 @@ const Dashboard = () => {
   const corpseState = eventFeedback?.corpse_state || null;
   const hazardState = eventFeedback?.hazard_state || corpseState?.hazard_state || null;
   const postCombatDamage = eventFeedback?.post_combat_damage || null;
+  const inactiveEncounter = eventFeedback?.encounter_disengaged || eventFeedback?.combat?.encounter_disengaged
+    ? {
+        state: eventFeedback?.encounter_state || eventFeedback?.combat?.encounter_state || "disengaged",
+        reason: eventFeedback?.encounter_sync?.reason || eventFeedback?.combat?.disengagement?.reason || "Active combat pressure ended.",
+        enemyHpVisible: eventFeedback?.encounter_sync?.enemy_hp_visible === true,
+        combatMode: eventFeedback?.encounter_sync?.combat_mode === true
+      }
+    : null;
   const hasCorpseState = !!corpseState && !activeThreat;
   const hasHazardWarning = !!hazardState?.active || eventFeedback?.world_reaction?.code === "corpse_hazard_warning";
   const hasResidualEvent = eventFeedback?.world_reaction?.code === "corpse_hazard" || !!postCombatDamage;
@@ -406,6 +414,17 @@ const Dashboard = () => {
                   {corpseState.description && <p>{corpseState.description}</p>}
                 </div>
                 <em>{corpseState.enemy_state || "defeated"}</em>
+              </section>
+            )}
+
+            {inactiveEncounter && !activeThreat && (
+              <section className={styles.inactiveEncounterPanel}>
+                <div>
+                  <span>Inactive Encounter</span>
+                  <strong>{inactiveEncounter.state.replace(/_/g, " ")}</strong>
+                  <p>{inactiveEncounter.reason}</p>
+                </div>
+                <em>{inactiveEncounter.combatMode ? "combat" : "tracking"}</em>
               </section>
             )}
 

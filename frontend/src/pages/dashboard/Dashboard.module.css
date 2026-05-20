@@ -396,12 +396,30 @@
   padding: 12px;
 }
 
+.inactiveEncounterPanel {
+  border: 1px solid #3b3f45;
+  background: #080a0c;
+  color: #d6dde6;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 14px;
+  align-items: center;
+  margin: 0 0 22px;
+  padding: 12px;
+}
+
 .remainsPanel div {
   display: grid;
   gap: 5px;
 }
 
+.inactiveEncounterPanel div {
+  display: grid;
+  gap: 5px;
+}
+
 .remainsPanel span,
+.inactiveEncounterPanel span,
 .corpseHazardPanel span,
 .residualPanel span {
   font-size: 0.75rem;
@@ -413,8 +431,17 @@
   color: #a9a9a9;
 }
 
+.inactiveEncounterPanel span {
+  color: #95a8bd;
+}
+
 .remainsPanel strong {
   color: #eeeeee;
+}
+
+.inactiveEncounterPanel strong {
+  color: #edf4ff;
+  text-transform: capitalize;
 }
 
 .remainsPanel p {
@@ -423,9 +450,24 @@
   margin: 0;
 }
 
+.inactiveEncounterPanel p {
+  color: #b9c2cc;
+  line-height: 1.35;
+  margin: 0;
+}
+
 .remainsPanel em {
   border: 1px solid #454545;
   color: #c8c8c8;
+  font-size: 0.78rem;
+  font-style: normal;
+  padding: 5px 7px;
+  text-transform: uppercase;
+}
+
+.inactiveEncounterPanel em {
+  border: 1px solid #3f4a57;
+  color: #c6d5e5;
   font-size: 0.78rem;
   font-style: normal;
   padding: 5px 7px;

@@ -106,12 +106,31 @@ function isResolvedEncounterFeedback(eventFeedback) {
     || isTerminalEncounterState(eventFeedback?.combat?.enemy_state);
 }
 
+function isInactiveEncounterFeedback(eventFeedback) {
+  const inactiveStates = [
+    "disengaged",
+    "unreachable",
+    "dormant",
+    "separated_by_terrain",
+    "sealed_off",
+    "inactive_tracking"
+  ];
+  const state = normalizeEnemyStateSlug(eventFeedback?.encounter_state || eventFeedback?.enemy_state);
+  const combatState = normalizeEnemyStateSlug(eventFeedback?.combat?.encounter_state || eventFeedback?.combat?.enemy_state);
+
+  return isResolvedEncounterFeedback(eventFeedback)
+    || eventFeedback?.encounter_disengaged === true
+    || eventFeedback?.combat?.encounter_disengaged === true
+    || inactiveStates.includes(state)
+    || inactiveStates.includes(combatState);
+}
+
 function isActiveEncounterState(state, eventFeedback = null) {
   return !!state?.active_encounter_id
     && !!state?.active_enemy_type_id
     && Number(state.enemy_hp || 0) > 0
     && Number(state.enemy_count || 0) > 0
-    && !isResolvedEncounterFeedback(eventFeedback);
+    && !isInactiveEncounterFeedback(eventFeedback);
 }
 
 async function clearResolvedFloorState(conn, existing, parseJson) {
@@ -121,6 +140,28 @@ async function clearResolvedFloorState(conn, existing, parseJson) {
      WHERE id = ?`,
     [existing.active_encounter_id]
   );
+  await conn.query(
+    `UPDATE player_floor_states
+     SET active_enemy_type_id = NULL,
+         active_encounter_id = NULL,
+         enemy_hp = 0,
+         enemy_count = 0
+     WHERE id = ?`,
+    [existing.id]
+  );
+
+  return {
+    ...existing,
+    active_enemy_type_id: null,
+    active_encounter_id: null,
+    enemy_hp: 0,
+    enemy_count: 0,
+    biome_hazard: parseJson(existing.biome_hazard_json, null),
+    encounter_members: []
+  };
+}
+
+async function clearInactiveFloorState(conn, existing, parseJson) {
   await conn.query(
     `UPDATE player_floor_states
      SET active_enemy_type_id = NULL,
@@ -452,6 +493,10 @@ router.get("/current", authenticateToken, async function getCurrentState(req, re
 
     if (existing?.active_encounter_id && isResolvedEncounterFeedback(parseJson(existing.last_event_json, null))) {
       return clearResolvedFloorState(conn, existing, parseJson);
+    }
+
+    if (existing?.active_encounter_id && isInactiveEncounterFeedback(parseJson(existing.last_event_json, null))) {
+      return clearInactiveFloorState(conn, existing, parseJson);
     }
 
     if (existing?.active_encounter_id) {
@@ -1147,6 +1192,10 @@ router.post("/start", authenticateToken, async function startGame(req, res) {
       return clearResolvedFloorState(conn, existing, parseJson);
     }
 
+    if (existing?.active_encounter_id && isInactiveEncounterFeedback(parseJson(existing.last_event_json, null))) {
+      return clearInactiveFloorState(conn, existing, parseJson);
+    }
+
     if (existing?.active_encounter_id) {
       const encounterMembers = await loadEncounterMembers(existing.active_encounter_id);
       const activeMembers = encounterMembers.filter((member) => !member.is_defeated && member.hp > 0);
@@ -1700,6 +1749,46 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
       })).filter((item) => item.from_step || item.to_step || item.dependency);
     }
 
+    function normalizeTacticalModifierProposals(value) {
+      if (!Array.isArray(value)) return [];
+
+      const allowedTypes = [
+        "stagger",
+        "pinned",
+        "trapped",
+        "slow",
+        "slowed",
+        "obstruct",
+        "tunnel_blocked",
+        "unstable_ground",
+        "reduced_visibility",
+        "separated_path",
+        "expose_weak_point",
+        "escape_window",
+        "restricted_movement",
+        "buried_limb",
+        "collapse_pressure",
+        "positional_advantage",
+        "counter_reduction",
+        "none"
+      ];
+      const allowedSources = ["environment", "movement", "control", "terrain", "improvised", "skill", "other"];
+      const allowedConfidence = ["low", "medium", "high"];
+
+      return value.slice(0, 5).map((item) => {
+        const type = cleanString(item?.type, "none").toLowerCase();
+        const source = cleanString(item?.source, "other").toLowerCase();
+        const confidence = cleanString(item?.confidence, "low").toLowerCase();
+
+        return {
+          type: allowedTypes.includes(type) ? type : "none",
+          source: allowedSources.includes(source) ? source : "other",
+          reason: cleanString(item?.reason).slice(0, 180),
+          confidence: allowedConfidence.includes(confidence) ? confidence : "low"
+        };
+      }).filter((item) => item.type !== "none" && item.reason);
+    }
+
     function normalizeCombatComponents(value) {
       if (!Array.isArray(value)) return [];
 
@@ -1755,6 +1844,7 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
         combat_posture: null,
         adaptive_mastery_tags: [],
         procedural_skill_hooks: [],
+        tactical_modifier_proposals: [],
         combat_components: [],
         risk_level: "medium",
         reason
@@ -1808,6 +1898,7 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
         combat_posture: cleanNullableString(parsed.combat_posture),
         adaptive_mastery_tags: normalizeStringArray(parsed.adaptive_mastery_tags),
         procedural_skill_hooks: normalizeStringArray(parsed.procedural_skill_hooks),
+        tactical_modifier_proposals: normalizeTacticalModifierProposals(parsed.tactical_modifier_proposals || parsed.proposed_tactical_modifiers),
         combat_components: parsedComponents,
         risk_level: ["low", "medium", "high"].includes(parsed.risk_level) ? parsed.risk_level : "medium",
         reason: String(parsed.reason || "")
@@ -1827,6 +1918,46 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
     function cleanNullableString(value) {
       const text = cleanString(value);
       return text ? text : null;
+    }
+
+    function normalizeTacticalModifierProposals(value) {
+      if (!Array.isArray(value)) return [];
+
+      const allowedTypes = [
+        "stagger",
+        "pinned",
+        "trapped",
+        "slow",
+        "slowed",
+        "obstruct",
+        "tunnel_blocked",
+        "unstable_ground",
+        "reduced_visibility",
+        "separated_path",
+        "expose_weak_point",
+        "escape_window",
+        "restricted_movement",
+        "buried_limb",
+        "collapse_pressure",
+        "positional_advantage",
+        "counter_reduction",
+        "none"
+      ];
+      const allowedSources = ["environment", "movement", "control", "terrain", "improvised", "skill", "other"];
+      const allowedConfidence = ["low", "medium", "high"];
+
+      return value.slice(0, 5).map((item) => {
+        const type = cleanString(item?.type, "none").toLowerCase();
+        const source = cleanString(item?.source, "other").toLowerCase();
+        const confidence = cleanString(item?.confidence, "low").toLowerCase();
+
+        return {
+          type: allowedTypes.includes(type) ? type : "none",
+          source: allowedSources.includes(source) ? source : "other",
+          reason: cleanString(item?.reason).slice(0, 180),
+          confidence: allowedConfidence.includes(confidence) ? confidence : "low"
+        };
+      }).filter((item) => item.type !== "none" && item.reason);
     }
 
     const allowedOutcomes = [
@@ -1872,6 +2003,7 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
         },
         threat_posture: null,
         environment_shift: null,
+        tactical_modifier_proposals: [],
         memory_summary: cleanString(actionInterpretation.intent || actionInterpretation.primary_action || reason, reason).slice(0, 240),
         risk_level: ["low", "medium", "high"].includes(actionInterpretation.risk_level) ? actionInterpretation.risk_level : "medium",
         backend_notes: reason
@@ -1919,6 +2051,7 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
         },
         threat_posture: cleanNullableString(parsed.threat_posture),
         environment_shift: cleanNullableString(parsed.environment_shift),
+        tactical_modifier_proposals: normalizeTacticalModifierProposals(parsed.tactical_modifier_proposals),
         memory_summary: cleanString(parsed.memory_summary, actionInterpretation.intent || "The dungeon shifted.").slice(0, 240),
         risk_level: ["low", "medium", "high"].includes(riskLevel) ? riskLevel : "medium",
         backend_notes: cleanString(parsed.backend_notes)
@@ -1958,6 +2091,17 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
       blinded: "blind",
       staggered: "stagger",
       bleeding: "bleed",
+      pinned: "pinned",
+      trapped: "trapped",
+      slowed: "slowed",
+      restricted: "restricted_movement",
+      restricted_movement: "restricted_movement",
+      buried_limb: "buried_limb",
+      tunnel_blocked: "tunnel_blocked",
+      unstable_ground: "unstable_ground",
+      reduced_visibility: "reduced_visibility",
+      separated_path: "separated_path",
+      collapse_pressure: "collapse_pressure",
       broken_limb: "break_limb",
       limb_break: "break_limb",
       knocked_down: "knockdown",
@@ -2119,6 +2263,17 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
     const durationMap = {
       blind: 2,
       stagger: 1,
+      pinned: 1,
+      trapped: 2,
+      slowed: 2,
+      tunnel_blocked: 2,
+      unstable_ground: 2,
+      reduced_visibility: 1,
+      separated_path: 1,
+      escape_window: 1,
+      restricted_movement: 2,
+      buried_limb: 2,
+      collapse_pressure: 2,
       bleed: 3,
       break_limb: 4,
       disarm: 2,
@@ -2127,14 +2282,28 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
       burn: 3,
       poison: 4
     };
+    const environmentalStatus = [
+      "pinned",
+      "trapped",
+      "slowed",
+      "tunnel_blocked",
+      "unstable_ground",
+      "reduced_visibility",
+      "separated_path",
+      "escape_window",
+      "restricted_movement",
+      "buried_limb",
+      "collapse_pressure"
+    ].includes(statusSlug);
 
     return {
       key: statusSlug,
-      source: "player_action",
+      source: environmentalStatus ? "player_environmental_action" : "player_action",
       target_area: component.target_area || actionInterpretation.target_area || null,
       duration: durationMap[statusSlug] || 2,
       intensity: actionInterpretation.risk_level === "high" ? 2 : 1,
-      applied_at_step: component.step
+      applied_at_step: component.step,
+      environmental_control: environmentalStatus
     };
   }
 
@@ -2169,14 +2338,19 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
       actionInterpretation.tactical_intent,
       actionInterpretation.approach,
       ...(actionInterpretation.status_attempts || []),
-      ...(actionInterpretation.adaptive_mastery_tags || [])
+      ...(actionInterpretation.adaptive_mastery_tags || []),
+      ...(actionInterpretation.tactical_modifier_proposals || []).map((proposal) => `${proposal.type} ${proposal.source} ${proposal.reason}`)
     ].filter(Boolean).join(" ").toLowerCase();
     const isEnvironmental = component.action_type === "environment"
       || component.damage_profile === "environment"
       || !!actionInterpretation.environmental_usage
       || /(terrain|debris|collapse|rock|stone|wall|ceiling|floor|rubble|trap|pit|ledge|root|web|mud|water|ice|ash|fire|obstruction|block|structural|weakness)/.test(componentText);
+    const isControlContext = ["status", "setup", "movement"].includes(component.action_type)
+      || /(control|grapple|pin|trip|shove|throw|force|bait|lure|herd|maneuver|position|escape|disable|disrupt)/.test(componentText);
+    const hasTacticalProposals = Array.isArray(actionInterpretation.tactical_modifier_proposals)
+      && actionInterpretation.tactical_modifier_proposals.length > 0;
 
-    if (!isEnvironmental || hitQuality <= 0) return [];
+    if (!(isEnvironmental || isControlContext) || hitQuality <= 0) return [];
 
     const largeOrArmored = isLargeOrArmoredTarget(targetMember, enemy);
     const effects = [];
@@ -2200,24 +2374,193 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
     if (/(collapse|debris|rubble|rock|stone|ceiling|wall|floor|structural)/.test(componentText)) {
       addEffect("stagger", "environmental_collapse");
       addEffect("obstructed", "environmental_collapse", { duration: duration + 1 });
+      addEffect("collapse_pressure", "environmental_collapse", { duration: duration + 1 });
+      addEffect("unstable_ground", "environmental_collapse", { target_area: "terrain", duration: duration + 1 });
+      if (/(tunnel|passage|route|path|corridor|choke|door|exit)/.test(componentText)) {
+        addEffect("tunnel_blocked", "environmental_collapse", { target_area: "route", duration: duration + 2 });
+        addEffect("separated_path", "environmental_collapse", { target_area: "route", duration: duration + 1 });
+      }
       if (largeOrArmored || hitQuality >= 0.55) addEffect("exposed_weak_point", "armor_shifted_by_terrain", { duration: 2 });
     }
 
     if (/(trap|pin|snare|web|root|mud|pit|block|obstruction|jam|wedge)/.test(componentText)) {
       addEffect("slowed", "environmental_control", { duration: duration + 1 });
-      if (hitQuality >= 0.45 || largeOrArmored) addEffect("pin", "environmental_control");
+      addEffect("restricted_movement", "environmental_control", { duration: duration + 1 });
+      if (hitQuality >= 0.45 || largeOrArmored) {
+        addEffect("pin", "environmental_control");
+        addEffect("pinned", "environmental_control");
+        addEffect("trapped", "environmental_control", { duration: duration + 1 });
+      }
+      if (/(limb|leg|arm|claw|foot|hand|knee|ankle)/.test(componentText) || largeOrArmored) {
+        addEffect("buried_limb", "environmental_control", { duration: duration + 1 });
+      }
     }
 
     if (/(force|bait|lure|herd|maneuver|movement|position|path|separate|escape)/.test(componentText)) {
       addEffect("displaced", "forced_movement");
       addEffect("escape_window", "positional_control", { duration: 1 });
+      addEffect("separated_path", "positional_control", { target_area: "route", duration: 1 });
     }
 
-    if (!effects.length) {
+    if (/(dust|smoke|ash|steam|fog|dark|blind|visibility|screen|cover)/.test(componentText)) {
+      addEffect("reduced_visibility", "environmental_cover", { target_area: "visibility", duration: 1 });
+    }
+
+    for (const proposal of actionInterpretation.tactical_modifier_proposals || []) {
+      const proposalSource = ["environment", "terrain"].includes(proposal.source)
+        ? "validated_environmental_proposal"
+        : ["control", "movement"].includes(proposal.source)
+          ? "validated_control_proposal"
+          : "validated_tactical_proposal";
+      const proposalExtra = {
+        validated_tactical_modifier: true,
+        proposal_type: proposal.type,
+        proposal_source: proposal.source,
+        proposal_confidence: proposal.confidence,
+        proposal_reason: proposal.reason
+      };
+
+      if (proposal.type === "stagger") {
+        addEffect("stagger", proposalSource, proposalExtra);
+      } else if (proposal.type === "slow" || proposal.type === "slowed") {
+        addEffect("slowed", proposalSource, { ...proposalExtra, duration: duration + 1 });
+      } else if (proposal.type === "obstruct") {
+        addEffect("obstructed", proposalSource, { ...proposalExtra, duration: duration + 1 });
+      } else if (proposal.type === "pinned") {
+        addEffect("pinned", proposalSource, proposalExtra);
+        addEffect("pin", proposalSource, proposalExtra);
+      } else if (proposal.type === "trapped") {
+        addEffect("trapped", proposalSource, { ...proposalExtra, duration: duration + 1 });
+        addEffect("restricted_movement", proposalSource, { ...proposalExtra, duration: duration + 1 });
+      } else if (proposal.type === "tunnel_blocked") {
+        addEffect("tunnel_blocked", proposalSource, { ...proposalExtra, target_area: "route", duration: duration + 2 });
+      } else if (proposal.type === "unstable_ground") {
+        addEffect("unstable_ground", proposalSource, { ...proposalExtra, target_area: "terrain", duration: duration + 1 });
+      } else if (proposal.type === "reduced_visibility") {
+        addEffect("reduced_visibility", proposalSource, { ...proposalExtra, target_area: "visibility", duration: 1 });
+      } else if (proposal.type === "separated_path") {
+        addEffect("separated_path", proposalSource, { ...proposalExtra, target_area: "route", duration: 1 });
+      } else if (proposal.type === "expose_weak_point" && (largeOrArmored || hitQuality >= 0.45)) {
+        addEffect("exposed_weak_point", proposalSource, { ...proposalExtra, duration: 2 });
+      } else if (proposal.type === "escape_window") {
+        addEffect("escape_window", proposalSource, { ...proposalExtra, duration: 1 });
+      } else if (proposal.type === "restricted_movement") {
+        addEffect("restricted_movement", proposalSource, { ...proposalExtra, duration: duration + 1 });
+      } else if (proposal.type === "buried_limb" && (largeOrArmored || hitQuality >= 0.45)) {
+        addEffect("buried_limb", proposalSource, { ...proposalExtra, duration: duration + 1 });
+      } else if (proposal.type === "collapse_pressure") {
+        addEffect("collapse_pressure", proposalSource, { ...proposalExtra, duration: duration + 1 });
+      } else if (proposal.type === "positional_advantage") {
+        addEffect("displaced", proposalSource, proposalExtra);
+        addEffect("escape_window", proposalSource, { ...proposalExtra, duration: 1 });
+      } else if (proposal.type === "counter_reduction") {
+        addEffect(largeOrArmored ? "obstructed" : "slowed", proposalSource, proposalExtra);
+      }
+    }
+
+    if (!effects.length && (isEnvironmental || hasTacticalProposals)) {
       addEffect(largeOrArmored ? "exposed_weak_point" : "stagger", "environmental_pressure");
     }
 
     return effects;
+  }
+
+  function buildEnvironmentalCombatState({ statusEffectsApplied, actionInterpretation, combatSnapshot }) {
+    const environmentalStates = [
+      "pinned",
+      "trapped",
+      "slowed",
+      "tunnel_blocked",
+      "unstable_ground",
+      "reduced_visibility",
+      "separated_path",
+      "escape_window",
+      "restricted_movement",
+      "buried_limb",
+      "collapse_pressure"
+    ];
+    const confirmed = (statusEffectsApplied || [])
+      .filter((status) => status?.environmental_control && environmentalStates.includes(status.key))
+      .map((status) => ({
+        key: status.key,
+        source: status.source,
+        target_area: status.target_area || "environment",
+        duration: Number(status.duration || 1),
+        intensity: Number(status.intensity || 1),
+        applied_at_step: status.applied_at_step || null,
+        validated_from_proposal: status.validated_tactical_modifier === true,
+        proposal_reason: status.proposal_reason || null
+      }));
+
+    const keys = confirmed.map((state) => state.key);
+    const uniqueKeys = Array.from(new Set(keys));
+
+    return {
+      active: confirmed.length > 0,
+      authority: "backend_validated",
+      source: "environmental_combat_resolution",
+      states: confirmed,
+      flags: {
+        pinned: uniqueKeys.includes("pinned"),
+        trapped: uniqueKeys.includes("trapped"),
+        slowed: uniqueKeys.includes("slowed"),
+        tunnel_blocked: uniqueKeys.includes("tunnel_blocked"),
+        unstable_ground: uniqueKeys.includes("unstable_ground"),
+        reduced_visibility: uniqueKeys.includes("reduced_visibility"),
+        separated_path: uniqueKeys.includes("separated_path"),
+        escape_window: uniqueKeys.includes("escape_window"),
+        restricted_movement: uniqueKeys.includes("restricted_movement"),
+        buried_limb: uniqueKeys.includes("buried_limb"),
+        collapse_pressure: uniqueKeys.includes("collapse_pressure")
+      },
+      movement: {
+        enemy_restricted: uniqueKeys.some((key) => ["pinned", "trapped", "slowed", "restricted_movement", "buried_limb", "collapse_pressure"].includes(key)),
+        route_changed: uniqueKeys.some((key) => ["tunnel_blocked", "separated_path", "escape_window"].includes(key)),
+        player_escape_window: uniqueKeys.includes("escape_window")
+      },
+      counterplay: {
+        enemy_reaction_reduced: uniqueKeys.some((key) => ["pinned", "trapped", "slowed", "restricted_movement", "buried_limb", "collapse_pressure", "reduced_visibility"].includes(key)),
+        pressure_reduction: confirmed.reduce((sum, state) => sum + Math.max(1, Number(state.intensity || 1)), 0)
+      },
+      proposed: actionInterpretation.tactical_modifier_proposals || [],
+      snapshot_environment: combatSnapshot?.environment || null
+    };
+  }
+
+  function getEnvironmentalDisengagement(environmentalCombatState) {
+    const flags = environmentalCombatState?.flags || {};
+    const movement = environmentalCombatState?.movement || {};
+    if (!environmentalCombatState?.active || !movement.route_changed) return null;
+
+    if (flags.tunnel_blocked && flags.separated_path) {
+      return {
+        encounter_state: "sealed_off",
+        reason: "route sealed by validated environmental combat state"
+      };
+    }
+
+    if (flags.tunnel_blocked) {
+      return {
+        encounter_state: "unreachable",
+        reason: "enemy separated by blocked tunnel"
+      };
+    }
+
+    if (flags.separated_path && (flags.escape_window || flags.collapse_pressure || flags.restricted_movement)) {
+      return {
+        encounter_state: "separated_by_terrain",
+        reason: "terrain split the combat space and opened extraction"
+      };
+    }
+
+    if (flags.escape_window && movement.enemy_restricted) {
+      return {
+        encounter_state: "disengaged",
+        reason: "player gained a validated escape window while enemy movement was restricted"
+      };
+    }
+
+    return null;
   }
 
   function mergeStatuses(existingStatuses, newStatuses) {
@@ -2945,6 +3288,10 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
       return clearResolvedFloorState(conn, existing, parseJson);
     }
 
+    if (existing?.active_encounter_id && isInactiveEncounterFeedback(parseJson(existing.last_event_json, null))) {
+      return clearInactiveFloorState(conn, existing, parseJson);
+    }
+
     if (existing?.active_encounter_id) {
       const encounterMembers = await loadEncounterMembers(existing.active_encounter_id);
       const activeMembers = encounterMembers.filter((member) => !member.is_defeated && member.hp > 0);
@@ -3317,6 +3664,12 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
       context: actionContext,
       actionInterpretation
     });
+    if (aiWorldDirective.tactical_modifier_proposals?.length) {
+      actionInterpretation.tactical_modifier_proposals = [
+        ...(actionInterpretation.tactical_modifier_proposals || []),
+        ...aiWorldDirective.tactical_modifier_proposals
+      ].slice(0, 5);
+    }
     const actionKey = actionInterpretation.action_key;
     const mechanicKey = actionInterpretation.playable ? actionInterpretation.mechanic_key : "typed";
 
@@ -3506,13 +3859,33 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
           ? activeAfterAttack.reduce((sum, member) => sum + Number(member.attack || 0), 0)
           : enemy.scaled_attack * Math.max(1, state.enemy_count);
         const impairmentPenalty = statusEffectsApplied.reduce((sum, status) => (
-          ["blind", "stagger", "break_limb", "disarm", "knockdown", "pin", "obstructed", "slowed", "displaced", "exposed_weak_point", "escape_window"].includes(status.key)
+          ["blind", "stagger", "break_limb", "disarm", "knockdown", "pin", "obstructed", "slowed", "displaced", "exposed_weak_point", "escape_window", "pinned", "trapped", "tunnel_blocked", "unstable_ground", "reduced_visibility", "separated_path", "restricted_movement", "buried_limb", "collapse_pressure"].includes(status.key)
             ? sum + (status.environmental_control ? 3 : 2)
             : sum
         ), 0);
         const reactionImpairmentPenalty = impairmentPenalty;
 
         enemyDamage = Math.max(0, groupAttack - getPlayerDamageMitigation(player) - reactionImpairmentPenalty);
+      }
+
+      const environmentalCombatState = buildEnvironmentalCombatState({
+        statusEffectsApplied,
+        actionInterpretation,
+        combatSnapshot
+      });
+      const environmentalDisengagement = getEnvironmentalDisengagement(environmentalCombatState);
+      if (environmentalDisengagement && nextEnemyHp > 0) {
+        enemyDamage = 0;
+        eventFeedback.encounter_disengaged = true;
+        eventFeedback.encounter_state = environmentalDisengagement.encounter_state;
+        eventFeedback.enemy_state = "inactive_tracking";
+        eventFeedback.encounter_sync = {
+          active_enemy_count: 0,
+          enemy_hp_visible: false,
+          threat_posture: environmentalDisengagement.encounter_state,
+          combat_mode: false,
+          reason: environmentalDisengagement.reason
+        };
       }
 
       if (nextEnemyHp <= 0) {
@@ -3560,11 +3933,14 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
             emotion: actionInterpretation.emotional_combat_state,
             weapon_usage: actionInterpretation.weapon_usage,
             status_attempts: actionInterpretation.status_attempts,
+            tactical_modifier_proposals: actionInterpretation.tactical_modifier_proposals,
             mastery_tags: actionInterpretation.adaptive_mastery_tags,
             skill_hooks: actionInterpretation.procedural_skill_hooks
           },
-          positional_advantage: statusEffectsApplied.some((status) => ["blind", "stagger", "knockdown", "pin", "exposed_weak_point", "escape_window"].includes(status.key)),
+          positional_advantage: statusEffectsApplied.some((status) => ["blind", "stagger", "knockdown", "pin", "exposed_weak_point", "escape_window", "separated_path"].includes(status.key)),
           environmental_control: statusEffectsApplied.filter((status) => status.environmental_control),
+          environmental_combat_state: environmentalCombatState,
+          validated_tactical_modifiers: statusEffectsApplied.filter((status) => status.validated_tactical_modifier),
           player_chain_interrupted: false,
           interrupted_enemy_action: true,
           player_damage_dealt: playerDamage,
@@ -3599,6 +3975,67 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
           eventFeedback.level_up = levelUps[levelUps.length - 1];
           eventFeedback.level_ups = levelUps;
         }
+      } else if (environmentalDisengagement) {
+        eventFeedback.combat = {
+          player_attempt: actionInput,
+          resolution_model: "atomic_snapshot_phases",
+          phase_order: ["player_action", "enemy_reaction"],
+          combat_snapshot: combatSnapshot,
+          target_member: targetMember,
+          enemy_reaction_code: "disengaged_by_environment",
+          damage_instances: damageInstances,
+          status_effects_applied: statusEffectsApplied,
+          stamina_cost: chainResolution?.staminaSpent || actionInterpretation.stamina_cost,
+          combo_potential: actionInterpretation.combo_potential,
+          chain_resolution: {
+            successful_steps: chainResolution?.successfulSteps || damageInstances.filter((hit) => hit.landed).length,
+            attempted_steps: combatComponents.length,
+            interrupted: false,
+            interruption_step: null,
+            interruption_reason: null,
+            conditional_chaining_allowed: false
+          },
+          combat_identity: {
+            family: actionInterpretation.combat_family,
+            style: actionInterpretation.combat_style,
+            posture: actionInterpretation.combat_posture,
+            emotion: actionInterpretation.emotional_combat_state,
+            weapon_usage: actionInterpretation.weapon_usage,
+            status_attempts: actionInterpretation.status_attempts,
+            tactical_modifier_proposals: actionInterpretation.tactical_modifier_proposals,
+            mastery_tags: actionInterpretation.adaptive_mastery_tags,
+            skill_hooks: actionInterpretation.procedural_skill_hooks
+          },
+          positional_advantage: true,
+          environmental_control: statusEffectsApplied.filter((status) => status.environmental_control),
+          environmental_combat_state: environmentalCombatState,
+          validated_tactical_modifiers: statusEffectsApplied.filter((status) => status.validated_tactical_modifier),
+          disengagement: {
+            encounter_state: environmentalDisengagement.encounter_state,
+            reason: environmentalDisengagement.reason,
+            enemy_remaining_hp: nextEnemyHp,
+            enemy_remaining_count: nextEnemyCount,
+            active_enemy_count: 0,
+            enemy_hp_visible: false,
+            combat_mode: false,
+            reactivation_requires_new_spawn: true
+          },
+          player_chain_interrupted: false,
+          interrupted_enemy_action: true,
+          player_damage_dealt: playerDamage,
+          enemy_damage_dealt: 0,
+          remaining_enemy_count: 0,
+          defeated: false,
+          enemy_defeated: false,
+          encounter_resolved: false,
+          encounter_disengaged: true,
+          encounter_state: environmentalDisengagement.encounter_state,
+          enemy_state: "inactive_tracking",
+          threat_posture: environmentalDisengagement.encounter_state,
+          combat_mode: false
+        };
+        nextEnemyHp = 0;
+        nextEnemyCount = 0;
       } else {
         nextHp = Math.max(0, player.hp - enemyDamage);
         eventFeedback.combat = {
@@ -3627,13 +4064,16 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
             emotion: actionInterpretation.emotional_combat_state,
             weapon_usage: actionInterpretation.weapon_usage,
             status_attempts: actionInterpretation.status_attempts,
+            tactical_modifier_proposals: actionInterpretation.tactical_modifier_proposals,
             mastery_tags: actionInterpretation.adaptive_mastery_tags,
             skill_hooks: actionInterpretation.procedural_skill_hooks
           },
-          positional_advantage: statusEffectsApplied.some((status) => ["blind", "stagger", "knockdown", "pin", "exposed_weak_point", "escape_window"].includes(status.key)),
+          positional_advantage: statusEffectsApplied.some((status) => ["blind", "stagger", "knockdown", "pin", "exposed_weak_point", "escape_window", "separated_path"].includes(status.key)),
           environmental_control: statusEffectsApplied.filter((status) => status.environmental_control),
+          environmental_combat_state: environmentalCombatState,
+          validated_tactical_modifiers: statusEffectsApplied.filter((status) => status.validated_tactical_modifier),
           player_chain_interrupted: false,
-          interrupted_enemy_action: statusEffectsApplied.some((status) => ["blind", "stagger", "break_limb", "disarm", "knockdown", "pin", "obstructed", "slowed", "displaced"].includes(status.key)),
+          interrupted_enemy_action: statusEffectsApplied.some((status) => ["blind", "stagger", "break_limb", "disarm", "knockdown", "pin", "obstructed", "slowed", "displaced", "pinned", "trapped", "tunnel_blocked", "reduced_visibility", "restricted_movement", "buried_limb", "collapse_pressure"].includes(status.key)),
           player_damage_dealt: playerDamage,
           enemy_damage_dealt: enemyDamage,
           remaining_enemy_count: nextEnemyCount,
@@ -3851,7 +4291,9 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
     const encounterResolved = eventFeedback.encounter_resolved === true
       || eventFeedback.enemy_defeated === true
       || isTerminalEnemyState(eventFeedback.enemy_state);
-    const clearEncounterState = encounterResolved || inactiveEncounterState;
+    const encounterInactive = eventFeedback.encounter_disengaged === true
+      || isInactiveEncounterFeedback(eventFeedback);
+    const clearEncounterState = encounterResolved || encounterInactive || inactiveEncounterState;
 
     await conn.query(
       `UPDATE player_floor_states
