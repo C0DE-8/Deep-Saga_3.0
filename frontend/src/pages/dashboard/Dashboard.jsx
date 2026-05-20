@@ -297,6 +297,13 @@ const Dashboard = () => {
   const activeThreat = boss || enemy;
   const enemyMembers = getEnemyMembers(activeThreat);
   const biomeHazard = activeThreat?.biome_hazard;
+  const corpseState = eventFeedback?.corpse_state || null;
+  const hazardState = eventFeedback?.hazard_state || corpseState?.hazard_state || null;
+  const postCombatDamage = eventFeedback?.post_combat_damage || null;
+  const hasCorpseState = !!corpseState && !activeThreat;
+  const hasHazardWarning = !!hazardState?.active || eventFeedback?.world_reaction?.code === "corpse_hazard_warning";
+  const hasResidualEvent = eventFeedback?.world_reaction?.code === "corpse_hazard" || !!postCombatDamage;
+  const hazardCategory = hazardState?.category || eventFeedback?.world_reaction?.category || postCombatDamage?.classification;
   const healthPercent = useMemo(() => {
     const hp = Number(player?.hp || 0);
     const maxHp = Number(player?.max_hp || 1);
@@ -391,6 +398,17 @@ const Dashboard = () => {
               </section>
             )}
 
+            {hasCorpseState && (
+              <section className={styles.remainsPanel}>
+                <div>
+                  <span>Remains</span>
+                  <strong>{corpseState.enemy_name || "Defeated enemy"}</strong>
+                  {corpseState.description && <p>{corpseState.description}</p>}
+                </div>
+                <em>{corpseState.enemy_state || "defeated"}</em>
+              </section>
+            )}
+
             {!!enemyMembers.length && (
               <section className={styles.encounterPanel}>
                 <div className={styles.panelHeader}>
@@ -416,6 +434,26 @@ const Dashboard = () => {
                 <span>Hazard</span>
                 <strong>{biomeHazard.name || biomeHazard.hazard_key}</strong>
                 {biomeHazard.description && <p>{biomeHazard.description}</p>}
+              </section>
+            )}
+
+            {hasHazardWarning && (
+              <section className={styles.corpseHazardPanel}>
+                <span>Corpse Hazard</span>
+                <strong>{hazardCategory || "unstable remains"}</strong>
+                <p>{hazardState?.warning || "The remains may react if disturbed."}</p>
+              </section>
+            )}
+
+            {hasResidualEvent && (
+              <section className={styles.residualPanel}>
+                <span>Residual Event</span>
+                <strong>{hazardCategory || "environmental backlash"}</strong>
+                <p>
+                  {postCombatDamage?.amount
+                    ? `Took ${postCombatDamage.amount} from ${postCombatDamage.classification || "unstable remains"}.`
+                    : eventFeedback?.world_reaction?.warning || "The remains discharged lingering danger."}
+                </p>
               </section>
             )}
 

@@ -384,6 +384,54 @@
   padding: 12px;
 }
 
+.remainsPanel {
+  border: 1px solid #3d3d3d;
+  background: #090909;
+  color: #d7d7d7;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 14px;
+  align-items: center;
+  margin: 0 0 22px;
+  padding: 12px;
+}
+
+.remainsPanel div {
+  display: grid;
+  gap: 5px;
+}
+
+.remainsPanel span,
+.corpseHazardPanel span,
+.residualPanel span {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.remainsPanel span {
+  color: #a9a9a9;
+}
+
+.remainsPanel strong {
+  color: #eeeeee;
+}
+
+.remainsPanel p {
+  color: #b8b8b8;
+  line-height: 1.35;
+  margin: 0;
+}
+
+.remainsPanel em {
+  border: 1px solid #454545;
+  color: #c8c8c8;
+  font-size: 0.78rem;
+  font-style: normal;
+  padding: 5px 7px;
+  text-transform: uppercase;
+}
+
 .panelHeader {
   display: flex;
   align-items: center;
@@ -437,6 +485,48 @@
   color: #cfc7a0;
   line-height: 1.35;
   margin: 8px 0 0;
+}
+
+.corpseHazardPanel,
+.residualPanel {
+  background: #0d0b04;
+  margin: 0 0 22px;
+  padding: 12px;
+}
+
+.corpseHazardPanel {
+  border: 1px solid #9a7b22;
+}
+
+.residualPanel {
+  border: 1px solid #5e76a5;
+  background: #05080e;
+}
+
+.corpseHazardPanel span {
+  color: #f0c85a;
+}
+
+.residualPanel span {
+  color: #9dbdff;
+}
+
+.corpseHazardPanel strong,
+.residualPanel strong {
+  color: #fff;
+  display: block;
+  margin-top: 5px;
+}
+
+.corpseHazardPanel p,
+.residualPanel p {
+  color: #d8d0b0;
+  line-height: 1.35;
+  margin: 8px 0 0;
+}
+
+.residualPanel p {
+  color: #bdc9e6;
 }
 
 .battlePanel {

@@ -106,6 +106,14 @@ function isResolvedEncounterFeedback(eventFeedback) {
     || isTerminalEncounterState(eventFeedback?.combat?.enemy_state);
 }
 
+function isActiveEncounterState(state, eventFeedback = null) {
+  return !!state?.active_encounter_id
+    && !!state?.active_enemy_type_id
+    && Number(state.enemy_hp || 0) > 0
+    && Number(state.enemy_count || 0) > 0
+    && !isResolvedEncounterFeedback(eventFeedback);
+}
+
 async function clearResolvedFloorState(conn, existing, parseJson) {
   await conn.query(
     `UPDATE player_encounters
@@ -333,7 +341,7 @@ router.get("/current", authenticateToken, async function getCurrentState(req, re
   }
 
   async function loadEnemyForState(conn, floor, state, fallbackEnemy = null) {
-    if (!state?.active_enemy_type_id) return fallbackEnemy;
+    if (!isActiveEncounterState(state)) return null;
 
     const [[enemy]] = await conn.query(
       `SELECT
@@ -363,7 +371,7 @@ router.get("/current", authenticateToken, async function getCurrentState(req, re
       ]
     );
 
-    return enemy || fallbackEnemy;
+    return enemy || null;
   }
 
   function isEncounterTooStrongForFloor(enemy, floor) {
@@ -712,7 +720,7 @@ router.get("/current", authenticateToken, async function getCurrentState(req, re
 
   async function buildResponse(conn, player, floor, enemy, state, eventFeedback = null) {
     const persistedFeedback = eventFeedback || parseJson(state?.last_event_json, null);
-    const enemyPayload = state?.enemy_hp > 0
+    const enemyPayload = isActiveEncounterState(state, persistedFeedback)
       ? getEnemySnapshot(enemy, state.enemy_count, state.enemy_hp)
       : null;
     if (enemyPayload) {
@@ -1026,7 +1034,7 @@ router.post("/start", authenticateToken, async function startGame(req, res) {
   }
 
   async function loadEnemyForState(conn, floor, state, fallbackEnemy = null) {
-    if (!state?.active_enemy_type_id) return fallbackEnemy;
+    if (!isActiveEncounterState(state)) return null;
 
     const [[enemy]] = await conn.query(
       `SELECT
@@ -1056,7 +1064,7 @@ router.post("/start", authenticateToken, async function startGame(req, res) {
       ]
     );
 
-    return enemy || fallbackEnemy;
+    return enemy || null;
   }
 
   function isEncounterTooStrongForFloor(enemy, floor) {
@@ -1405,7 +1413,7 @@ router.post("/start", authenticateToken, async function startGame(req, res) {
 
   async function buildResponse(conn, player, floor, enemy, state, eventFeedback = null) {
     const persistedFeedback = eventFeedback || parseJson(state?.last_event_json, null);
-    const enemyPayload = state?.enemy_hp > 0
+    const enemyPayload = isActiveEncounterState(state, persistedFeedback)
       ? getEnemySnapshot(enemy, state.enemy_count, state.enemy_hp)
       : null;
     if (enemyPayload) {
@@ -2130,6 +2138,88 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
     };
   }
 
+  function isLargeOrArmoredTarget(targetMember, enemy) {
+    const text = [
+      targetMember?.rank_tier,
+      enemy?.rank_tier,
+      enemy?.name,
+      enemy?.enemy_key,
+      enemy?.description,
+      JSON.stringify(targetMember?.abilities || []),
+      JSON.stringify(targetMember?.mutations || {}),
+      JSON.stringify(targetMember?.behavior || {}),
+      enemy?.abilities_json,
+      enemy?.mutation_json,
+      enemy?.behavior_json
+    ].filter(Boolean).join(" ").toLowerCase();
+
+    return /(large|giant|huge|massive|armou?r|shell|stone|back|carapace|hide|plate|ore|golem|titan|brute|heavy|coloss)/.test(text)
+      || Number(targetMember?.max_hp || enemy?.scaled_hp || 0) >= 60
+      || Number(targetMember?.defense || enemy?.scaled_defense || 0) >= 5;
+  }
+
+  function getEnvironmentalControlEffects({ component, actionInterpretation, targetMember, enemy, hitQuality, damage }) {
+    const componentText = [
+      component.description,
+      component.effect,
+      component.intended_status_effect,
+      component.target_area,
+      component.weapon_source,
+      actionInterpretation.environmental_usage,
+      actionInterpretation.tactical_intent,
+      actionInterpretation.approach,
+      ...(actionInterpretation.status_attempts || []),
+      ...(actionInterpretation.adaptive_mastery_tags || [])
+    ].filter(Boolean).join(" ").toLowerCase();
+    const isEnvironmental = component.action_type === "environment"
+      || component.damage_profile === "environment"
+      || !!actionInterpretation.environmental_usage
+      || /(terrain|debris|collapse|rock|stone|wall|ceiling|floor|rubble|trap|pit|ledge|root|web|mud|water|ice|ash|fire|obstruction|block|structural|weakness)/.test(componentText);
+
+    if (!isEnvironmental || hitQuality <= 0) return [];
+
+    const largeOrArmored = isLargeOrArmoredTarget(targetMember, enemy);
+    const effects = [];
+    const intensity = hitQuality >= 0.6 || largeOrArmored || damage > 0 ? 2 : 1;
+    const duration = largeOrArmored ? 2 : 1;
+
+    function addEffect(key, source, extra = {}) {
+      if (effects.some((effect) => effect.key === key)) return;
+      effects.push({
+        key,
+        source,
+        target_area: component.target_area || actionInterpretation.target_area || "environment",
+        duration,
+        intensity,
+        applied_at_step: component.step,
+        environmental_control: true,
+        ...extra
+      });
+    }
+
+    if (/(collapse|debris|rubble|rock|stone|ceiling|wall|floor|structural)/.test(componentText)) {
+      addEffect("stagger", "environmental_collapse");
+      addEffect("obstructed", "environmental_collapse", { duration: duration + 1 });
+      if (largeOrArmored || hitQuality >= 0.55) addEffect("exposed_weak_point", "armor_shifted_by_terrain", { duration: 2 });
+    }
+
+    if (/(trap|pin|snare|web|root|mud|pit|block|obstruction|jam|wedge)/.test(componentText)) {
+      addEffect("slowed", "environmental_control", { duration: duration + 1 });
+      if (hitQuality >= 0.45 || largeOrArmored) addEffect("pin", "environmental_control");
+    }
+
+    if (/(force|bait|lure|herd|maneuver|movement|position|path|separate|escape)/.test(componentText)) {
+      addEffect("displaced", "forced_movement");
+      addEffect("escape_window", "positional_control", { duration: 1 });
+    }
+
+    if (!effects.length) {
+      addEffect(largeOrArmored ? "exposed_weak_point" : "stagger", "environmental_pressure");
+    }
+
+    return effects;
+  }
+
   function mergeStatuses(existingStatuses, newStatuses) {
     const byKey = new Map();
 
@@ -2199,6 +2289,86 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
       + (Number(player.dexterity_stat || 1) * 0.25)
       + (Number(player.wisdom_stat || 1) * 0.15)
     );
+  }
+
+  function assessMovementTactics({ player, enemy, state, actionInterpretation, actionInput }) {
+    const actionText = [
+      actionInput,
+      actionInterpretation?.intent,
+      actionInterpretation?.approach,
+      actionInterpretation?.tactical_intent,
+      actionInterpretation?.primary_action,
+      actionInterpretation?.environmental_usage,
+      ...(actionInterpretation?.adaptive_mastery_tags || []),
+      ...(actionInterpretation?.procedural_skill_hooks || [])
+    ].filter(Boolean).join(" ").toLowerCase();
+    const enemyText = [
+      enemy?.enemy_key,
+      enemy?.name,
+      enemy?.description,
+      enemy?.ai_style_prompt,
+      JSON.stringify(parseJson(enemy?.behavior_json, {})),
+      JSON.stringify(parseJson(enemy?.abilities_json, [])),
+      JSON.stringify(parseJson(enemy?.mutation_json, {}))
+    ].filter(Boolean).join(" ").toLowerCase();
+    const hazard = state.biome_hazard || parseJson(state.biome_hazard_json, null);
+    const hazardText = `${hazard?.hazard_key || ""} ${hazard?.name || ""} ${hazard?.description || ""}`.toLowerCase();
+
+    const awarenessTerms = [
+      "vibration",
+      "tremor",
+      "listen",
+      "sound",
+      "echo",
+      "feel",
+      "sense",
+      "structural",
+      "careful",
+      "cautious",
+      "slow",
+      "probe",
+      "watch",
+      "scan",
+      "footing",
+      "ground",
+      "stone",
+      "wall"
+    ];
+    const recklessTerms = ["rush", "sprint", "charge", "reckless", "blindly", "run straight", "ignore"];
+    const awarenessHits = awarenessTerms.filter((term) => actionText.includes(term)).length;
+    const recklessHits = recklessTerms.filter((term) => actionText.includes(term)).length;
+    const tremorRelevant = /stone|burrow|ambush|hidden|tremor|vibration|ground|earth|shell|echo|subterranean/.test(`${enemyText} ${hazardText}`);
+    const statRead = Math.floor((Number(player.wisdom_stat || 1) + Number(player.intelligence_stat || 1)) / 2);
+    const awarenessScore = awarenessHits + (tremorRelevant && awarenessHits ? 1 : 0) + Math.floor(statRead / 6) - recklessHits;
+    const cautious = awarenessScore >= 2 || actionInterpretation?.risk_level === "low";
+    const strongRead = awarenessScore >= 4;
+    const mitigationRatio = strongRead
+      ? 0.75
+      : cautious
+        ? 0.45
+        : recklessHits
+          ? -0.15
+          : 0;
+
+    return {
+      cautious,
+      strong_read: strongRead,
+      tremor_relevant: tremorRelevant,
+      awareness_score: awarenessScore,
+      mitigation_ratio: mitigationRatio,
+      perception_cue: tremorRelevant
+        ? "subtle vibration and stone-pressure changes telegraph the ambush line"
+        : cautious
+          ? "careful movement reveals the pressure shift before contact"
+          : null,
+      positional_result: strongRead
+        ? "positional_advantage"
+        : cautious
+          ? "partial_mitigation"
+          : recklessHits
+            ? "overexposed"
+            : "none"
+    };
   }
 
   function getTargetStat(targetMember, statKey, fallback = 5) {
@@ -2360,6 +2530,22 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
           partial: glancing && !landed
         });
       }
+
+      const environmentalEffects = getEnvironmentalControlEffects({
+        component,
+        actionInterpretation,
+        targetMember: snapshotTarget,
+        enemy,
+        hitQuality,
+        damage
+      });
+      if (environmentalEffects.length) {
+        statusEffectsApplied.push(...environmentalEffects.map((effect) => ({
+          ...effect,
+          partial: glancing && !landed
+        })));
+      }
+
       if (injuryKey && damage > 0) {
         statusEffectsApplied.push({
           key: injuryKey,
@@ -2390,6 +2576,7 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
         skipped: false,
         damage_dealt: damage,
         intended_status_effect: component.intended_status_effect,
+        environmental_control_effects: environmentalEffects,
         hp_after: nextTargetHp
       });
     }
@@ -2645,7 +2832,7 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
   }
 
   async function loadEnemyForState(conn, floor, state, fallbackEnemy = null) {
-    if (!state?.active_enemy_type_id) return fallbackEnemy;
+    if (!isActiveEncounterState(state)) return null;
 
     const [[enemy]] = await conn.query(
       `SELECT
@@ -2675,7 +2862,7 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
       ]
     );
 
-    return enemy || fallbackEnemy;
+    return enemy || null;
   }
 
   function isEncounterTooStrongForFloor(enemy, floor) {
@@ -2993,7 +3180,7 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
 
   async function buildAiContext(conn, player, floor, enemy, state, eventFeedback = null) {
     const persistedFeedback = eventFeedback || parseJson(state?.last_event_json, null);
-    const enemyPayload = state?.enemy_hp > 0
+    const enemyPayload = isActiveEncounterState(state, persistedFeedback)
       ? getEnemySnapshot(enemy, state.enemy_count, state.enemy_hp)
       : null;
     if (enemyPayload) {
@@ -3107,6 +3294,13 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
       enemy = await loadEnemyForState(conn, floor, state, spawnEnemy);
     }
     const priorFeedback = parseJson(state?.last_event_json, null);
+    const activeEncounter = isActiveEncounterState(state, priorFeedback);
+    const inactiveEncounterState = !activeEncounter && (
+      !!state?.active_encounter_id
+      || !!state?.active_enemy_type_id
+      || Number(state?.enemy_hp || 0) > 0
+      || Number(state?.enemy_count || 0) > 0
+    );
     const actionContext = await buildAiContext(conn, player, floor, enemy, state, {
       player_action: actionInput,
       previous_event: priorFeedback,
@@ -3152,12 +3346,12 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
     let nextDungeonLevel = player.current_dungeon_level || 1;
     let nextFloor = player.current_floor || 1;
     let nextArea = floor.name;
-    let nextEnemyHp = state.enemy_hp;
-    let nextEnemyCount = state.enemy_count;
+    let nextEnemyHp = activeEncounter ? state.enemy_hp : 0;
+    let nextEnemyCount = activeEncounter ? state.enemy_count : 0;
     let nextAlive = player.is_alive;
     let nextMaxHp = Math.max(Number(player.max_hp || 0), getMaxHpForStats(nextLevel, player.stamina_stat));
 
-    if (mechanicKey === "attack" && enemy && state.enemy_hp > 0) {
+    if (mechanicKey === "attack" && enemy && activeEncounter) {
       const activeMembers = Array.isArray(state.encounter_members)
         ? state.encounter_members.filter((member) => !member.is_defeated && member.hp > 0)
         : [];
@@ -3312,7 +3506,9 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
           ? activeAfterAttack.reduce((sum, member) => sum + Number(member.attack || 0), 0)
           : enemy.scaled_attack * Math.max(1, state.enemy_count);
         const impairmentPenalty = statusEffectsApplied.reduce((sum, status) => (
-          ["blind", "stagger", "break_limb", "disarm", "knockdown", "pin"].includes(status.key) ? sum + 2 : sum
+          ["blind", "stagger", "break_limb", "disarm", "knockdown", "pin", "obstructed", "slowed", "displaced", "exposed_weak_point", "escape_window"].includes(status.key)
+            ? sum + (status.environmental_control ? 3 : 2)
+            : sum
         ), 0);
         const reactionImpairmentPenalty = impairmentPenalty;
 
@@ -3367,7 +3563,8 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
             mastery_tags: actionInterpretation.adaptive_mastery_tags,
             skill_hooks: actionInterpretation.procedural_skill_hooks
           },
-          positional_advantage: statusEffectsApplied.some((status) => ["blind", "stagger", "knockdown", "pin"].includes(status.key)),
+          positional_advantage: statusEffectsApplied.some((status) => ["blind", "stagger", "knockdown", "pin", "exposed_weak_point", "escape_window"].includes(status.key)),
+          environmental_control: statusEffectsApplied.filter((status) => status.environmental_control),
           player_chain_interrupted: false,
           interrupted_enemy_action: true,
           player_damage_dealt: playerDamage,
@@ -3433,9 +3630,10 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
             mastery_tags: actionInterpretation.adaptive_mastery_tags,
             skill_hooks: actionInterpretation.procedural_skill_hooks
           },
-          positional_advantage: statusEffectsApplied.some((status) => ["blind", "stagger", "knockdown", "pin"].includes(status.key)),
+          positional_advantage: statusEffectsApplied.some((status) => ["blind", "stagger", "knockdown", "pin", "exposed_weak_point", "escape_window"].includes(status.key)),
+          environmental_control: statusEffectsApplied.filter((status) => status.environmental_control),
           player_chain_interrupted: false,
-          interrupted_enemy_action: statusEffectsApplied.some((status) => ["blind", "stagger", "break_limb", "disarm", "knockdown", "pin"].includes(status.key)),
+          interrupted_enemy_action: statusEffectsApplied.some((status) => ["blind", "stagger", "break_limb", "disarm", "knockdown", "pin", "obstructed", "slowed", "displaced"].includes(status.key)),
           player_damage_dealt: playerDamage,
           enemy_damage_dealt: enemyDamage,
           remaining_enemy_count: nextEnemyCount,
@@ -3448,20 +3646,47 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
         };
       }
     } else if (mechanicKey === "move") {
-      if (state.enemy_hp > 0) {
-        const enemyDamage = enemy ? Math.max(1, enemy.scaled_attack - Math.floor(Number(player.dexterity_stat || 1) * 0.65)) : 0;
+      if (activeEncounter) {
+        const movementTactics = assessMovementTactics({
+          player,
+          enemy,
+          state,
+          actionInterpretation,
+          actionInput
+        });
+        const baseMovementDamage = enemy ? Math.max(1, enemy.scaled_attack - Math.floor(Number(player.dexterity_stat || 1) * 0.65)) : 0;
+        const mitigatedDamage = movementTactics.mitigation_ratio >= 0
+          ? Math.floor(baseMovementDamage * (1 - movementTactics.mitigation_ratio))
+          : Math.ceil(baseMovementDamage * (1 + Math.abs(movementTactics.mitigation_ratio)));
+        const enemyDamage = movementTactics.strong_read
+          ? Math.max(0, mitigatedDamage)
+          : Math.max(1, mitigatedDamage);
         nextHp = Math.max(0, player.hp - enemyDamage);
         eventFeedback.world_reaction = {
-          code: "blocked_by_active_enemy",
+          code: movementTactics.cautious ? "ambush_partially_read" : "blocked_by_active_enemy",
           blocked: true,
+          movement_tactics: movementTactics,
+          mitigation: {
+            base_damage: baseMovementDamage,
+            mitigated_damage: enemyDamage,
+            damage_reduced: Math.max(0, baseMovementDamage - enemyDamage),
+            reason: movementTactics.perception_cue
+          },
           ai_world_directive: aiWorldDirective
         };
         eventFeedback.combat = {
           player_attempt: actionInput,
-          enemy_reaction_code: "opportunity_attack",
+          enemy_reaction_code: movementTactics.cautious ? "ambush_mitigated" : "opportunity_attack",
           player_damage_dealt: 0,
           enemy_damage_dealt: enemyDamage,
-          defeated: false
+          defeated: false,
+          movement_tactics: movementTactics,
+          positional_advantage: movementTactics.positional_result === "positional_advantage",
+          damage_mitigation: {
+            base_damage: baseMovementDamage,
+            final_damage: enemyDamage,
+            damage_reduced: Math.max(0, baseMovementDamage - enemyDamage)
+          }
         };
       } else if (aiWorldDirective.route_result.movement === "blocked" || aiWorldDirective.outcome_key === "blocked") {
         eventFeedback.world_reaction = {
@@ -3512,7 +3737,7 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
         ai_world_directive: aiWorldDirective
       };
     } else if (mechanicKey === "defend") {
-      if (enemy && state.enemy_hp > 0) {
+      if (enemy && activeEncounter) {
         const enemyDamage = Math.max(0, Math.floor(enemy.scaled_attack / 2) - getPlayerDamageMitigation(player));
         nextHp = Math.max(0, player.hp - enemyDamage);
         eventFeedback.combat = {
@@ -3526,7 +3751,7 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
     } else if (mechanicKey === "hide") {
       eventFeedback.world_reaction = {
         code: "hide_attempt",
-        threat_present: !!(enemy && state.enemy_hp > 0),
+        threat_present: !!(enemy && activeEncounter),
         stealth_state: aiWorldDirective.stealth_result.state,
         ai_world_directive: aiWorldDirective
       };
@@ -3540,7 +3765,7 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
       };
     }
 
-    if (!eventFeedback.combat && !(enemy && state.enemy_hp > 0)) {
+    if (!eventFeedback.combat && !(enemy && activeEncounter)) {
       const corpseHazard = resolvePostCombatCorpseHazard({
         priorFeedback,
         actionInput,
@@ -3626,6 +3851,7 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
     const encounterResolved = eventFeedback.encounter_resolved === true
       || eventFeedback.enemy_defeated === true
       || isTerminalEnemyState(eventFeedback.enemy_state);
+    const clearEncounterState = encounterResolved || inactiveEncounterState;
 
     await conn.query(
       `UPDATE player_floor_states
@@ -3636,10 +3862,10 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
            last_event_json = ?
        WHERE player_id = ? AND dungeon_floor_id = ?`,
       [
-        encounterResolved ? 1 : 0,
-        encounterResolved ? 1 : 0,
-        encounterResolved ? 0 : nextEnemyHp,
-        encounterResolved ? 0 : nextEnemyCount,
+        clearEncounterState ? 1 : 0,
+        clearEncounterState ? 1 : 0,
+        clearEncounterState ? 0 : nextEnemyHp,
+        clearEncounterState ? 0 : nextEnemyCount,
         JSON.stringify(eventFeedback),
         player.id,
         floor.id

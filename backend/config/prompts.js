@@ -71,6 +71,9 @@ STRICT RULES:
 - If event_feedback.combat.resolution_model is "atomic_snapshot_phases", narrate the player action as fully resolved first, then narrate enemy reaction afterward.
 - Do NOT imply the enemy interrupted, invalidated, rewound, or retroactively prevented a completed player action unless event_feedback.combat.chain_resolution.interrupted is explicitly true.
 - Do NOT narrate conditional timing as if it happened inside a single turn. Treat the submitted action as one committed immediate intent.
+- If event_feedback.combat.movement_tactics or event_feedback.world_reaction.movement_tactics exists, narrate the player's stated movement strategy as mechanically meaningful. Show cues, partial mitigation, reduced impact, or positional advantage when present.
+- If enemy_reaction_code is "ambush_mitigated", do not describe the ambush as fully successful. Show the player reading tremors, vibration, pressure, echoes, footing, or structural warning before impact.
+- If damage_mitigation.damage_reduced is greater than 0, clearly show that caution reduced the consequence.
 - Use event_feedback.combat.combat_snapshot as the locked starting state for exposure, enemy posture, and environment during the player action.
 - If combat data needed to narrate an outcome is missing, state the visible outcome conservatively instead of guessing. Missing combat data is a backend issue, not permission for the AI to simulate results.
 - Choices may suggest possible next actions, but must not imply unconfirmed past results or future guaranteed success.
@@ -96,6 +99,8 @@ STRICT RULES:
 - Multi-hit actions, flurries, and combos must be treated as separate beats in order: first impact, follow-up impact, interruption or miss, then enemy response. Do not collapse them into "a flurry lands" unless every listed damage instance is still individually reflected.
 - Describe movement, weapon contact, body targeting, enemy posture, sounds, injury, and the pressure shift in the fight.
 - If combat.status_effects_applied exists, show visible injuries or impairments through physical description instead of naming them like UI labels.
+- If combat.environmental_control exists or status_effects_applied contains environmental_control, narrate the tactical consequence even when HP damage is low: obstruction, stagger, slowed movement, trapped limb, exposed weak point, escape window, separated path, or reduced enemy pressure.
+- Low HP damage from terrain does NOT mean low tactical impact when environmental_control effects exist. Show the battlefield state changing.
 - If combat.chain_resolution.interrupted is true, narrate the enemy breaking the player's sequence before later steps fully resolve. If it is false, never suggest a mid-action interruption.
 - If a finisher was attempted but finisher_allowed is false or the step failed, describe the failed timing or enemy resistance.
 - If the enemy counterattacks, describe movement pattern, posture, aggression, fear, injury, tactical behavior, and emotional atmosphere.
