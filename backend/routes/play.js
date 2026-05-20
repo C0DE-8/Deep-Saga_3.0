@@ -2714,6 +2714,74 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
     };
   }
 
+  function classifyThreatSource({ enemy, state, eventFeedback, actionInterpretation, aiWorldDirective, activeEncounter }) {
+    const hazard = state?.biome_hazard || parseJson(state?.biome_hazard_json, null);
+    const combat = eventFeedback?.combat || null;
+    const worldReaction = eventFeedback?.world_reaction || null;
+    const environmentalState = combat?.environmental_combat_state || null;
+    const text = [
+      hazard?.hazard_key,
+      hazard?.name,
+      hazard?.description,
+      JSON.stringify(hazard?.effect || {}),
+      enemy?.enemy_key,
+      enemy?.name,
+      enemy?.description,
+      enemy?.ai_style_prompt,
+      enemy?.behavior_json,
+      enemy?.abilities_json,
+      enemy?.mutation_json,
+      actionInterpretation?.intent,
+      actionInterpretation?.approach,
+      actionInterpretation?.environmental_usage,
+      actionInterpretation?.tactical_intent,
+      aiWorldDirective?.world_state,
+      aiWorldDirective?.threat_posture,
+      aiWorldDirective?.environment_shift,
+      worldReaction?.code,
+      worldReaction?.category,
+      worldReaction?.source,
+      worldReaction?.damage_classification,
+      combat?.enemy_reaction_code,
+      JSON.stringify(environmentalState?.flags || {})
+    ].filter(Boolean).join(" ").toLowerCase();
+    const flags = environmentalState?.flags || {};
+    const hasEnemyPressure = !!(activeEncounter || combat?.combat_mode || combat?.enemy_reaction_code);
+    const hiddenCreature = hasEnemyPressure && /(hidden|stealth|ambush|burrow|subterranean|stalk|predator|lurking|tremor)/.test(text);
+    let category = "environmental_hazard";
+    let reason = "ambient dungeon hazard or world pressure";
+
+    if (/geothermal|thermal|magma|lava|steam|superheat|scald|sulfur|vent|eruption|fire|burn|ash/.test(text)) {
+      category = "geothermal_eruption";
+      reason = "heat, venting, fire, steam, ash, or geothermal pressure";
+    } else if (flags.tunnel_blocked || flags.separated_path || (environmentalState?.movement?.route_changed && flags.unstable_ground)) {
+      category = "tunnel_shift";
+      reason = "terrain movement changed the route or combat space";
+    } else if (hiddenCreature) {
+      category = "hidden_predator";
+      reason = "creature threat was concealed, burrowing, stalking, or ambush-based";
+    } else if (hasEnemyPressure) {
+      category = "creature_ambush";
+      reason = "active creature pressure or enemy opportunity attack";
+    } else if (/(tunnel|corridor|passage|route|path|collapse|cave-in|cave in|sealed|blocked|unstable ground)/.test(text)) {
+      category = "tunnel_shift";
+      reason = "terrain movement changed the route or combat space";
+    } else if (flags.collapse_pressure || /(pressure|backlash|discharge|release|quake|tremor|vibration|shockwave|rupture)/.test(text)) {
+      category = "unstable_pressure_release";
+      reason = "stored pressure or unstable force released from the environment";
+    }
+
+    return {
+      category,
+      label: category.replace(/_/g, " "),
+      source_type: category.includes("predator") || category.includes("creature") ? "creature" : "environment",
+      creature_based: category.includes("predator") || category.includes("creature"),
+      environmental: !(category.includes("predator") || category.includes("creature")),
+      combat_related: !!combat,
+      reason
+    };
+  }
+
   function getTargetStat(targetMember, statKey, fallback = 5) {
     return Number(targetMember?.stats?.[statKey] || fallback);
   }
@@ -4244,6 +4312,30 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
       } else if (priorFeedback?.corpse_state) {
         eventFeedback.corpse_state = priorFeedback.corpse_state;
         eventFeedback.hazard_state = priorFeedback.corpse_state.hazard_state || null;
+      }
+    }
+
+    if (eventFeedback.combat || eventFeedback.world_reaction || eventFeedback.hazard_state || eventFeedback.post_combat_damage) {
+      const threatSource = classifyThreatSource({
+        enemy,
+        state,
+        eventFeedback,
+        actionInterpretation,
+        aiWorldDirective,
+        activeEncounter
+      });
+      eventFeedback.threat_source = threatSource;
+      if (eventFeedback.combat) {
+        eventFeedback.combat.threat_source = threatSource;
+      }
+      if (eventFeedback.world_reaction) {
+        eventFeedback.world_reaction.threat_source = threatSource;
+      }
+      if (eventFeedback.hazard_state) {
+        eventFeedback.hazard_state = {
+          ...eventFeedback.hazard_state,
+          threat_source: threatSource
+        };
       }
     }
 

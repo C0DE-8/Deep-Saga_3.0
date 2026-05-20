@@ -384,6 +384,14 @@
   padding: 12px;
 }
 
+.threatSourcePanel {
+  border: 1px solid #4b5360;
+  background: #07090c;
+  color: #dbe5f0;
+  margin: 0 0 22px;
+  padding: 12px;
+}
+
 .remainsPanel {
   border: 1px solid #3d3d3d;
   background: #090909;
@@ -483,7 +491,8 @@
 }
 
 .panelHeader span,
-.hazardPanel span {
+.hazardPanel span,
+.threatSourcePanel span {
   color: #9fc9ff;
   font-size: 0.75rem;
   text-transform: uppercase;
@@ -510,7 +519,8 @@
 }
 
 .enemyRow strong,
-.hazardPanel strong {
+.hazardPanel strong,
+.threatSourcePanel strong {
   color: #fff;
 }
 
@@ -525,6 +535,12 @@
 
 .hazardPanel p {
   color: #cfc7a0;
+  line-height: 1.35;
+  margin: 8px 0 0;
+}
+
+.threatSourcePanel p {
+  color: #b9c9da;
   line-height: 1.35;
   margin: 8px 0 0;
 }

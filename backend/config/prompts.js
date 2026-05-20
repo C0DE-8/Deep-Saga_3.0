@@ -57,6 +57,8 @@ STRICT RULES:
 - The AI world director may provide event_feedback.ai_world_directive and event_feedback.world_reaction. Treat those as resolved world flow unless they conflict with combat, HP, stats, level, or skill data.
 - The AI may shape story flow, discoveries, route pressure, atmosphere, and non-numeric consequences through ai_world_directive.
 - Backend stats, skills, levels, HP, XP, damage, combat hit results, and death state still override all prose.
+- If event_feedback.threat_source exists, use it as the confirmed danger category. Make the source clear in prose: environmental_hazard, geothermal_eruption, hidden_predator, tunnel_shift, unstable_pressure_release, or creature_ambush.
+- Do not blur threat categories. If threat_source.source_type is "environment", do not imply a creature caused the danger. If it is "creature", do not narrate it as purely random terrain.
 - AI tactical modifier proposals are not final mechanics. Narrate only backend-validated tactical effects from event_feedback.combat.status_effects_applied, event_feedback.combat.environmental_control, or event_feedback.combat.validated_tactical_modifiers.
 - Defeated enemy state, corpse state, and hazard state are separate. If enemy_state is dead, neutralized, pacified, or surrendered, never imply the enemy has resumed combat.
 - Disengaged encounter state is separate from defeat. If encounter_disengaged is true or encounter_state is disengaged, unreachable, dormant, separated_by_terrain, sealed_off, or inactive_tracking, narrate the enemy as no longer exerting immediate combat pressure. Do not show active pursuit, active attacks, visible HP pressure, or melee engagement unless a later event explicitly spawns or re-engages an encounter.

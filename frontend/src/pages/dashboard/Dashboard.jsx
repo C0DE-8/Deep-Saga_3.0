@@ -300,6 +300,11 @@ const Dashboard = () => {
   const corpseState = eventFeedback?.corpse_state || null;
   const hazardState = eventFeedback?.hazard_state || corpseState?.hazard_state || null;
   const postCombatDamage = eventFeedback?.post_combat_damage || null;
+  const threatSource = eventFeedback?.threat_source
+    || eventFeedback?.combat?.threat_source
+    || eventFeedback?.world_reaction?.threat_source
+    || hazardState?.threat_source
+    || null;
   const inactiveEncounter = eventFeedback?.encounter_disengaged || eventFeedback?.combat?.encounter_disengaged
     ? {
         state: eventFeedback?.encounter_state || eventFeedback?.combat?.encounter_state || "disengaged",
@@ -445,6 +450,14 @@ const Dashboard = () => {
                     </div>
                   ))}
                 </div>
+              </section>
+            )}
+
+            {threatSource && (
+              <section className={styles.threatSourcePanel}>
+                <span>Threat Source</span>
+                <strong>{threatSource.label || String(threatSource.category || "unknown").replace(/_/g, " ")}</strong>
+                {threatSource.reason && <p>{threatSource.reason}</p>}
               </section>
             )}
 
