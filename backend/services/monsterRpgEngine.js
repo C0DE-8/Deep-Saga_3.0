@@ -165,18 +165,17 @@ function makeScene(run, event = null) {
   };
 }
 
-function createStartState({ userName, requestedName }) {
+function createStartState() {
   const starter = pickRandom(STARTERS);
   const stats = { ...starter.stats };
   const derived = derivedFromStats(stats);
   const maxHp = 28 + stats.vitality * 4;
   const maxMp = 8 + stats.intelligence * 3 + stats.wisdom;
   const maxStamina = 18 + stats.vitality * 2 + stats.resolve * 2;
-  const name = String(requestedName || userName || starter.species).trim().slice(0, 100);
 
   return {
     difficulty: DEFAULT_DIFFICULTY,
-    name,
+    name: "Nameless",
     species: starter.species,
     evolution_stage: 0,
     level: 1,

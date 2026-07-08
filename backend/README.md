@@ -24,6 +24,7 @@ CREATE DATABASE deep_saga_3_0;
 mysql -u root -p deep_saga_3_0 < migrations/001_initial_schema.sql
 mysql -u root -p deep_saga_3_0 < migrations/002_monster_reincarnation_rpg.sql
 mysql -u root -p deep_saga_3_0 < migrations/003_single_rpg_flow_and_10_floors.sql
+mysql -u root -p deep_saga_3_0 < migrations/004_legacy_dungeon_schema_from_dump.sql
 ```
 
 ### 3. Environment Configuration

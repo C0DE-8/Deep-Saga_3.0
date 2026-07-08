@@ -5,8 +5,8 @@ export const getRpgState = async () => {
   return response.data;
 };
 
-export const startRpg = async ({ name, restart = false }) => {
-  const response = await api.post("/rpg/start", { name, restart });
+export const startRpg = async ({ restart = false } = {}) => {
+  const response = await api.post("/rpg/start", { restart });
   return response.data;
 };
 

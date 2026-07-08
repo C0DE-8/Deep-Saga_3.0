@@ -518,6 +518,7 @@ The backend schema is maintained through ordered migration files:
   migrations/001_initial_schema.sql
   migrations/002_monster_reincarnation_rpg.sql
   migrations/003_single_rpg_flow_and_10_floors.sql
+  migrations/004_legacy_dungeon_schema_from_dump.sql
 
 migrations/001_initial_schema.sql:
 
@@ -534,6 +535,11 @@ migrations/003_single_rpg_flow_and_10_floors.sql:
 
 - Adds current_floor to the RPG save.
 - Seeds the 10-floor descent content.
+
+migrations/004_legacy_dungeon_schema_from_dump.sql:
+
+- Recreates reusable dungeon schema and static content from the legacy deep_saga_3_0.sql dump.
+- Excludes users, players, and player-progress data.
 
 
 15. Database Tables

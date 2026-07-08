@@ -93,10 +93,7 @@ router.post("/start", authenticateToken, async (req, res) => {
       );
     }
 
-    const start = createStartState({
-      userName: user.username,
-      requestedName: req.body?.name
-    });
+    const start = createStartState();
 
     await conn.query(
       `INSERT INTO rpg_reincarnations (

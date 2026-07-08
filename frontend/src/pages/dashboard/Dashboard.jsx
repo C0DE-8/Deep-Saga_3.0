@@ -1,31 +1,31 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
-import { Activity, BookOpen, Heart, Swords, Zap } from "lucide-react";
+import { Activity, BookOpen, Heart, Shield, Swords, Zap } from "lucide-react";
 import BottomNav from "../../components/bottomNav/BottomNav";
 import Header from "../../components/Header/header";
 import { getRpgState, resolveRpgAction, startRpg } from "../../api/rpgApi";
 import styles from "./Dashboard.module.css";
 
 const CORE_STATS = [
-  ["strength", "Strength"],
-  ["agility", "Agility"],
-  ["vitality", "Vitality"],
-  ["intelligence", "Intelligence"],
-  ["wisdom", "Wisdom"],
-  ["resolve", "Resolve"],
-  ["dexterity", "Dexterity"],
-  ["perception", "Perception"],
-  ["luck", "Luck"],
-  ["charisma", "Charisma"]
+  ["strength", "STR"],
+  ["agility", "AGI"],
+  ["vitality", "VIT"],
+  ["intelligence", "INT"],
+  ["wisdom", "WIS"],
+  ["resolve", "RES"],
+  ["dexterity", "DEX"],
+  ["perception", "PER"],
+  ["luck", "LUK"],
+  ["charisma", "CHA"]
 ];
 
 const DERIVED_STATS = [
-  ["defense", "Defense"],
-  ["magic_attack", "Magic Attack"],
-  ["magic_defense", "Magic Defense"],
-  ["critical_rate", "Critical Rate"],
-  ["dodge_rate", "Dodge Rate"],
-  ["movement_speed", "Movement Speed"]
+  ["defense", "DEF"],
+  ["magic_attack", "M.ATK"],
+  ["magic_defense", "M.DEF"],
+  ["critical_rate", "CRIT"],
+  ["dodge_rate", "DODGE"],
+  ["movement_speed", "SPD"]
 ];
 
 const getErrorMessage = (error, fallback) => {
@@ -51,13 +51,13 @@ function Meter({ label, value, max, tone = "green" }) {
   );
 }
 
-function TagList({ title, items, empty = "None yet" }) {
+function MiniList({ title, items, empty = "None" }) {
   const values = Array.isArray(items) ? items : [];
   return (
-    <section className={styles.panel}>
+    <section className={styles.infoBlock}>
       <h3>{title}</h3>
       <div className={styles.tags}>
-        {values.length ? values.map((item, index) => (
+        {values.length ? values.slice(0, 8).map((item, index) => (
           <span key={`${typeof item === "string" ? item : item.key || item.name}-${index}`}>
             {typeof item === "string" ? item : item.name || item.key}
           </span>
@@ -70,16 +70,13 @@ function TagList({ title, items, empty = "None yet" }) {
 function SkillList({ title, items }) {
   const values = Array.isArray(items) ? items : [];
   return (
-    <section className={styles.panel}>
+    <section className={styles.infoBlock}>
       <h3>{title}</h3>
       <div className={styles.skillList}>
-        {values.length ? values.map((skill) => (
+        {values.length ? values.slice(0, 6).map((skill) => (
           <div className={styles.skillRow} key={skill.key || skill.name}>
-            <div>
-              <strong>{skill.name || skill.key}</strong>
-              <span>{skill.source || skill.cost_type || "earned through action"}</span>
-            </div>
-            <small>Lv {skill.level || 1} · {skill.xp || 0} XP</small>
+            <span>{skill.name || skill.key}</span>
+            <strong>Lv {skill.level || 1}</strong>
           </div>
         )) : <em>No skills learned.</em>}
       </div>
@@ -90,7 +87,6 @@ function SkillList({ title, items }) {
 const Dashboard = () => {
   const [character, setCharacter] = useState(null);
   const [scene, setScene] = useState(null);
-  const [name, setName] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
@@ -119,10 +115,10 @@ const Dashboard = () => {
   const start = async (restart = false) => {
     setSubmitting(true);
     try {
-      const data = await startRpg({ name, restart });
+      const data = await startRpg({ restart });
       setCharacter(data.character);
       setScene(data.scene);
-      toast.success(restart ? "New body awakened" : "Reincarnation started");
+      toast.success(restart ? "A new body awakens" : "Reincarnation started");
     } catch (error) {
       toast.error(getErrorMessage(error, "Failed to start reincarnation"));
     } finally {
@@ -131,6 +127,7 @@ const Dashboard = () => {
   };
 
   const act = async (actionKey) => {
+    if (!actionKey || submitting) return;
     setSubmitting(true);
     try {
       const data = await resolveRpgAction({ actionKey });
@@ -144,7 +141,8 @@ const Dashboard = () => {
   };
 
   const xpPercent = useMemo(() => percent(character?.xp, character?.xp_to_next), [character?.xp, character?.xp_to_next]);
-  const title = character ? `${character.race_species} · Floor ${character.current_floor || 1}` : "Monster Reincarnation";
+  const title = character ? `${character.race_species} · Floor ${character.current_floor || 1}` : "Reincarnation";
+  const choices = Array.isArray(scene?.choices) ? scene.choices : [];
 
   return (
     <div className={styles.page}>
@@ -154,78 +152,89 @@ const Dashboard = () => {
         {loading ? (
           <section className={styles.emptyState}>
             <Activity size={28} />
-            <p>Loading this reincarnation...</p>
+            <p>Loading the current scene...</p>
           </section>
         ) : !character ? (
           <section className={styles.startPanel}>
-            <span>Previous Life Ended</span>
-            <h1>Wake as a weak monster and survive.</h1>
+            <span>Previous life terminated</span>
+            <h1>You do not remember your name.</h1>
             <p>
-              Your first species is random. Survive the descent through 10 floors,
-              and earn skills from what you do, survive, discover, and become.
+              Something small opens its eyes in the dark. The first choice is not who you are.
+              It is whether this new body survives long enough to become anything.
             </p>
-            <div className={styles.startForm}>
-              <input value={name} onChange={(event) => setName(event.target.value)} placeholder="Character name" />
-              <button type="button" onClick={() => start(false)} disabled={submitting}>
-                Start Reincarnation
-              </button>
-            </div>
+            <button type="button" onClick={() => start(false)} disabled={submitting}>
+              {submitting ? "Awakening..." : "Open your eyes"}
+            </button>
           </section>
         ) : (
-          <>
-            <section className={styles.heroGrid}>
-              <div className={styles.scenePanel}>
-                <span>{scene?.area || "Unknown wilds"}</span>
-                <h1>{scene?.title || "The World Watches"}</h1>
-                <p>{scene?.text || "Choose how this body survives."}</p>
-                {!character.is_alive && (
-                  <button className={styles.restartButton} type="button" onClick={() => start(true)} disabled={submitting}>
-                    Reincarnate Again
-                  </button>
-                )}
+          <section className={styles.gameGrid}>
+            <section className={styles.chatPanel} aria-label="Story chat">
+              <div className={styles.chatHeader}>
+                <div>
+                  <span>{scene?.area || "Unknown floor"}</span>
+                  <h1>{scene?.title || "The World Watches"}</h1>
+                </div>
+                <strong>Floor {character.current_floor || 1}/10</strong>
               </div>
 
-              <aside className={styles.identityPanel}>
-                <span>Character Sheet</span>
-                <h2>{character.name}</h2>
-                <dl>
-                  <div><dt>Race/Species</dt><dd>{character.race_species}</dd></div>
-                  <div><dt>Evolution Stage</dt><dd>{character.evolution_stage}</dd></div>
-                  <div><dt>Floor</dt><dd>{character.current_floor || 1}/10</dd></div>
-                  <div><dt>Level</dt><dd>{character.level}</dd></div>
-                  <div><dt>XP</dt><dd>{character.xp}/{character.xp_to_next}</dd></div>
-                  <div><dt>Soul Level</dt><dd>{character.soul_level}</dd></div>
-                  <div><dt>Deaths</dt><dd>{character.death_count}</dd></div>
-                  <div><dt>Reincarnations</dt><dd>{character.reincarnation_count}</dd></div>
-                </dl>
-              </aside>
-            </section>
-
-            <section className={styles.metersGrid}>
-              <Meter label="Health" value={character.hp} max={character.max_hp} tone="red" />
-              <Meter label="Mana" value={character.mp} max={character.max_mp} tone="blue" />
-              <Meter label="Stamina" value={character.stamina} max={character.max_stamina} tone="green" />
-              <div className={styles.meter}>
-                <div className={styles.meterTop}><span>Experience</span><strong>{xpPercent}%</strong></div>
-                <div className={styles.meterTrack}><div className={`${styles.meterFill} ${styles.gold}`} style={{ width: `${xpPercent}%` }} /></div>
+              <div className={styles.chatLog}>
+                <article className={styles.systemBubble}>
+                  <span>System</span>
+                  <p>Death confirmed. Memory damaged. Species reassigned: {character.race_species}.</p>
+                </article>
+                <article className={styles.narratorBubble}>
+                  <span>Narrator</span>
+                  <p>{scene?.text || "Choose how this body survives."}</p>
+                </article>
               </div>
-              <div className={styles.resourceCard}><Heart size={18} /> Hunger <strong>{character.hunger}</strong></div>
-              <div className={styles.resourceCard}><Zap size={18} /> Currency <strong>{character.currency}</strong></div>
-              <div className={styles.resourceCard}><BookOpen size={18} /> Reputation <strong>{character.reputation}</strong></div>
-            </section>
 
-            <section className={styles.choiceGrid}>
-              {(scene?.choices || []).map((choice) => (
-                <button key={choice.key} type="button" onClick={() => act(choice.key)} disabled={submitting || !character.is_alive}>
-                  <Swords size={18} />
-                  <strong>{choice.label}</strong>
-                  <span>{choice.detail}</span>
+              {!character.is_alive && (
+                <button className={styles.rebirthButton} type="button" onClick={() => start(true)} disabled={submitting}>
+                  {submitting ? "Reforming..." : "Reincarnate again"}
                 </button>
-              ))}
+              )}
             </section>
 
-            <section className={styles.sheetGrid}>
-              <section className={styles.panel}>
+            <section className={styles.choicesPanel} aria-label="Choices">
+              <div className={styles.panelHeader}>
+                <span>Choose response</span>
+                <strong>{submitting ? "Resolving" : "Waiting"}</strong>
+              </div>
+              <div className={styles.choiceList}>
+                {choices.map((choice) => (
+                  <button key={choice.key} type="button" onClick={() => act(choice.key)} disabled={submitting || !character.is_alive}>
+                    <Swords size={18} />
+                    <span>{choice.label}</span>
+                    <small>{choice.detail}</small>
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            <aside className={styles.statusPanel} aria-label="Character status">
+              <div className={styles.identityBlock}>
+                <span>Character Sheet</span>
+                <h2>{character.name || "Nameless"}</h2>
+                <p>{character.race_species} · Evolution Stage {character.evolution_stage}</p>
+              </div>
+
+              <div className={styles.vitalsGrid}>
+                <Meter label="HP" value={character.hp} max={character.max_hp} tone="red" />
+                <Meter label="MP" value={character.mp} max={character.max_mp} tone="blue" />
+                <Meter label="STA" value={character.stamina} max={character.max_stamina} tone="green" />
+                <div className={styles.meter}>
+                  <div className={styles.meterTop}><span>XP</span><strong>{xpPercent}%</strong></div>
+                  <div className={styles.meterTrack}><div className={`${styles.meterFill} ${styles.gold}`} style={{ width: `${xpPercent}%` }} /></div>
+                </div>
+              </div>
+
+              <div className={styles.resourceStrip}>
+                <span><Heart size={15} /> Hunger <strong>{character.hunger}</strong></span>
+                <span><Zap size={15} /> Soul <strong>{character.soul_level}</strong></span>
+                <span><BookOpen size={15} /> Deaths <strong>{character.death_count}</strong></span>
+              </div>
+
+              <section className={styles.infoBlock}>
                 <h3>Core Stats</h3>
                 <div className={styles.statGrid}>
                   {CORE_STATS.map(([key, label]) => (
@@ -234,64 +243,58 @@ const Dashboard = () => {
                 </div>
               </section>
 
-              <section className={styles.panel}>
-                <h3>Combat Stats</h3>
+              <section className={styles.infoBlock}>
+                <h3>Combat</h3>
                 <div className={styles.statGrid}>
                   {DERIVED_STATS.map(([key, label]) => (
-                    <div key={key}><span>{label}</span><strong>{character.derived?.[key] ?? 0}{key.includes("rate") ? "%" : ""}</strong></div>
+                    <div key={key}>
+                      <span>{label}</span>
+                      <strong>{character.derived?.[key] ?? 0}{key.includes("rate") ? "%" : ""}</strong>
+                    </div>
                   ))}
                 </div>
               </section>
 
               <SkillList title="Active Skills" items={character.active_skills} />
               <SkillList title="Passive Skills" items={character.passive_skills} />
-              <TagList title="Traits" items={character.traits} />
-              <TagList title="Titles" items={character.titles} />
-              <TagList title="Status Effects" items={character.status_effects} empty="Healthy" />
+              <MiniList title="Traits" items={character.traits} />
+              <MiniList title="Titles" items={character.titles} />
+              <MiniList title="Status Effects" items={character.status_effects} empty="Healthy" />
 
-              <section className={styles.panel}>
-                <h3>Inventory & Equipment</h3>
+              <section className={styles.infoBlock}>
+                <h3>Inventory</h3>
                 <div className={styles.inventoryList}>
-                  {(character.inventory || []).length ? character.inventory.map((item, index) => (
+                  {(character.inventory || []).length ? character.inventory.slice(0, 8).map((item, index) => (
                     <div key={`${item.key}-${index}`}>
                       <span>{item.name}</span>
                       <strong>x{item.quantity}</strong>
                     </div>
                   )) : <em>Nothing carried.</em>}
                 </div>
-                <div className={styles.equipmentLine}>
-                  Weapon: {character.equipment?.weapon || "none"} · Armor: {character.equipment?.armor || "none"}
-                </div>
               </section>
 
-              <section className={styles.panel}>
+              <section className={styles.infoBlock}>
                 <h3>Quests</h3>
                 <div className={styles.questList}>
-                  {(character.quests || []).map((quest) => (
+                  {(character.quests || []).slice(0, 4).map((quest) => (
                     <div key={quest.key}>
                       <strong>{quest.name}</strong>
-                      <span>{quest.description}</span>
-                      <small>{quest.status} · {quest.progress}/{quest.target} · {quest.reward}</small>
+                      <span>{quest.status} · {quest.progress}/{quest.target}</span>
                     </div>
                   ))}
                 </div>
               </section>
 
-              <section className={styles.panel}>
-                <h3>Evolution Progress</h3>
+              <section className={styles.infoBlock}>
+                <h3>Evolution</h3>
                 <div className={styles.evolutionBox}>
-                  <strong>{character.evolution_progress?.essence || 0} essence</strong>
-                  <span>{character.evolution_progress?.ready ? "Evolution pressure is ready." : "Conditions are still incomplete."}</span>
-                  <div className={styles.tags}>
-                    {(character.evolution_progress?.conditions || []).map((condition) => <span key={condition}>{condition}</span>)}
-                  </div>
+                  <Shield size={16} />
+                  <span>{character.evolution_progress?.essence || 0} essence</span>
+                  <strong>{character.evolution_progress?.ready ? "Ready" : "Dormant"}</strong>
                 </div>
               </section>
-
-              <TagList title="Relationships" items={character.relationships} empty="No bonds formed." />
-              <TagList title="Achievements" items={character.achievements} empty="No achievements yet." />
-            </section>
-          </>
+            </aside>
+          </section>
         )}
       </main>
 
