@@ -10,7 +10,7 @@ export const startRpg = async ({ restart = false } = {}) => {
   return response.data;
 };
 
-export const resolveRpgAction = async ({ actionKey }) => {
-  const response = await api.post("/rpg/action", { action_key: actionKey });
+export const resolveRpgAction = async ({ actionText }) => {
+  const response = await api.post("/rpg/action", { action_text: actionText });
   return response.data;
 };

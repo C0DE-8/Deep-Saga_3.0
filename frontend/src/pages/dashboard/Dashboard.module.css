@@ -116,7 +116,8 @@
 }
 
 .systemBubble,
-.narratorBubble {
+.narratorBubble,
+.playerBubble {
   border: 1px solid #24303d;
   border-radius: 8px;
   background: #0d1219;
@@ -128,8 +129,16 @@
   border-color: #314157;
 }
 
+.playerBubble {
+  width: min(86%, 640px);
+  justify-self: end;
+  background: #13241d;
+  border-color: #2d6a4f;
+}
+
 .systemBubble p,
-.narratorBubble p {
+.narratorBubble p,
+.playerBubble p {
   margin: 8px 0 0;
   color: #d8e1ec;
   line-height: 1.65;
@@ -139,6 +148,38 @@
 .rebirthButton {
   justify-self: start;
   margin: 0 18px 18px;
+}
+
+.chatInput {
+  border-top: 1px solid #202936;
+  display: grid;
+  grid-template-columns: 1fr 48px;
+  gap: 10px;
+  padding: 14px;
+}
+
+.chatInput input {
+  min-width: 0;
+  border: 1px solid #2b3746;
+  border-radius: 8px;
+  background: #0d1219;
+  color: #edf2f7;
+  font: inherit;
+  padding: 12px 14px;
+}
+
+.chatInput input::placeholder {
+  color: #708095;
+}
+
+.chatInput button {
+  border: none;
+  border-radius: 8px;
+  background: #67e8a3;
+  color: #07100b;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
 }
 
 .choicesPanel {
@@ -175,7 +216,8 @@
 
 .choiceList button:disabled,
 .startPanel button:disabled,
-.rebirthButton:disabled {
+.rebirthButton:disabled,
+.chatInput button:disabled {
   cursor: not-allowed;
   opacity: 0.55;
 }

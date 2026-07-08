@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
-import { Activity, BookOpen, Heart, Shield, Swords, Zap } from "lucide-react";
+import { Activity, BookOpen, Heart, Send, Shield, Swords, Zap } from "lucide-react";
 import BottomNav from "../../components/bottomNav/BottomNav";
 import Header from "../../components/Header/header";
 import { getRpgState, resolveRpgAction, startRpg } from "../../api/rpgApi";
@@ -9,6 +9,7 @@ import styles from "./Dashboard.module.css";
 const CORE_STATS = [
   ["strength", "STR"],
   ["agility", "AGI"],
+  ["thaumaturgy", "THAUM"],
   ["vitality", "VIT"],
   ["intelligence", "INT"],
   ["wisdom", "WIS"],
@@ -16,7 +17,8 @@ const CORE_STATS = [
   ["dexterity", "DEX"],
   ["perception", "PER"],
   ["luck", "LUK"],
-  ["charisma", "CHA"]
+  ["charisma", "CHA"],
+  ["health", "Health"]
 ];
 
 const DERIVED_STATS = [
@@ -87,6 +89,8 @@ function SkillList({ title, items }) {
 const Dashboard = () => {
   const [character, setCharacter] = useState(null);
   const [scene, setScene] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [actionText, setActionText] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
@@ -96,6 +100,7 @@ const Dashboard = () => {
       const data = await getRpgState();
       setCharacter(data.character);
       setScene(data.scene);
+      setMessages(data.scene ? [{ role: "narrator", text: data.scene.text }] : []);
     } catch (error) {
       if (error?.response?.status === 404) {
         setCharacter(null);
@@ -118,6 +123,7 @@ const Dashboard = () => {
       const data = await startRpg({ restart });
       setCharacter(data.character);
       setScene(data.scene);
+      setMessages([{ role: "narrator", text: data.scene?.text || "" }]);
       toast.success(restart ? "A new body awakens" : "Reincarnation started");
     } catch (error) {
       toast.error(getErrorMessage(error, "Failed to start reincarnation"));
@@ -126,18 +132,27 @@ const Dashboard = () => {
     }
   };
 
-  const act = async (actionKey) => {
-    if (!actionKey || submitting) return;
+  const act = async (nextAction) => {
+    const trimmed = String(nextAction || "").trim();
+    if (!trimmed || submitting) return;
     setSubmitting(true);
+    setMessages((current) => [...current, { role: "player", text: trimmed }]);
     try {
-      const data = await resolveRpgAction({ actionKey });
+      const data = await resolveRpgAction({ actionText: trimmed });
       setCharacter(data.character);
       setScene(data.scene);
+      setMessages((current) => [...current, { role: "narrator", text: data.scene?.text || "" }]);
+      setActionText("");
     } catch (error) {
       toast.error(getErrorMessage(error, "Action failed"));
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const submitTypedAction = (event) => {
+    event.preventDefault();
+    act(actionText);
   };
 
   const xpPercent = useMemo(() => percent(character?.xp, character?.xp_to_next), [character?.xp, character?.xp_to_next]);
@@ -182,16 +197,32 @@ const Dashboard = () => {
                   <span>System</span>
                   <p>Death confirmed. Memory damaged. Species reassigned: {character.race_species}.</p>
                 </article>
-                <article className={styles.narratorBubble}>
-                  <span>Narrator</span>
-                  <p>{scene?.text || "Choose how this body survives."}</p>
-                </article>
+                {messages.map((message, index) => (
+                  <article className={message.role === "player" ? styles.playerBubble : styles.narratorBubble} key={`${message.role}-${index}`}>
+                    <span>{message.role === "player" ? "You" : "Narrator"}</span>
+                    <p>{message.text || "..."}</p>
+                  </article>
+                ))}
               </div>
 
               {!character.is_alive && (
                 <button className={styles.rebirthButton} type="button" onClick={() => start(true)} disabled={submitting}>
                   {submitting ? "Reforming..." : "Reincarnate again"}
                 </button>
+              )}
+
+              {character.is_alive && (
+                <form className={styles.chatInput} onSubmit={submitTypedAction}>
+                  <input
+                    value={actionText}
+                    onChange={(event) => setActionText(event.target.value)}
+                    placeholder='Type your move, e.g. "I take the food and demand worship..."'
+                    disabled={submitting}
+                  />
+                  <button type="submit" disabled={submitting || !actionText.trim()} aria-label="Send action">
+                    <Send size={18} />
+                  </button>
+                </form>
               )}
             </section>
 
@@ -202,7 +233,7 @@ const Dashboard = () => {
               </div>
               <div className={styles.choiceList}>
                 {choices.map((choice) => (
-                  <button key={choice.key} type="button" onClick={() => act(choice.key)} disabled={submitting || !character.is_alive}>
+                  <button key={choice.key} type="button" onClick={() => act(choice.label)} disabled={submitting || !character.is_alive}>
                     <Swords size={18} />
                     <span>{choice.label}</span>
                     <small>{choice.detail}</small>

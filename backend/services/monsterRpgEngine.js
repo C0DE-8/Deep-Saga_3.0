@@ -3,11 +3,14 @@ const BALANCE = { damageTaken: 1, xp: 1, loot: 1, enemy: 1 };
 
 const STARTERS = [
   {
-    species: "Cave Slime",
-    stats: { strength: 3, agility: 4, vitality: 7, intelligence: 3, wisdom: 3, resolve: 6, dexterity: 2, perception: 4, luck: 5, charisma: 1 },
-    traits: ["Amorphous Body", "Acidic Skin"],
-    active: [{ key: "acid_splash", name: "Acid Splash", level: 1, xp: 0, cost_type: "mp", cost: 3, power: 7 }],
-    passive: [{ key: "soft_body", name: "Soft Body", level: 1, xp: 0 }]
+    species: "Kobold Hatchling",
+    stats: { strength: 15, agility: 15, vitality: 10, intelligence: 10, wisdom: 8, resolve: 15, dexterity: 12, perception: 11, luck: 5, charisma: 4, thaumaturgy: 10, health: 100 },
+    traits: ["Reincarnated Soul", "Monster Body"],
+    active: [
+      { key: "bite", name: "Bite", level: 1, xp: 0, cost_type: "stamina", cost: 4, power: 8 },
+      { key: "claw", name: "Claw", level: 1, xp: 0, cost_type: "stamina", cost: 5, power: 9 }
+    ],
+    passive: [{ key: "darkvision", name: "Darkvision", level: 1, xp: 0 }]
   },
   {
     species: "Ash Imp",
@@ -154,33 +157,26 @@ function makeScene(run, event = null) {
     title: event?.title || run.scene_title || area.name,
     text: event?.text || run.scene_text || area.description,
     area: `Floor ${floor.floor}: ${area.name}`,
-    choices: [
-      { key: "hunt", label: "Hunt for prey", detail: "Fight a local monster for XP, food, items, and skill practice." },
-      { key: "explore", label: "Explore the area", detail: "Search for quests, resources, NPCs, ruins, and hidden conditions." },
-      { key: "train", label: "Train a survival action", detail: "Build stats and convert repeated actions into real skills." },
-      { key: "feed", label: "Feed and recover", detail: "Consume stored food or forage to manage hunger and heal." },
-      { key: "descend", label: run.current_floor >= 10 ? "Face the pit" : "Descend deeper", detail: run.current_floor >= 10 ? "Challenge the ruler trial at the bottom." : "Move down toward the next floor when you can survive it." },
-      { key: "evolve", label: "Attempt evolution", detail: "Use level, traits, achievements, and rare conditions to change species." }
-    ]
+    choices: event?.choices || getDefaultChoices(run)
   };
 }
 
 function createStartState() {
-  const starter = pickRandom(STARTERS);
+  const starter = STARTERS[0];
   const stats = { ...starter.stats };
   const derived = derivedFromStats(stats);
-  const maxHp = 28 + stats.vitality * 4;
-  const maxMp = 8 + stats.intelligence * 3 + stats.wisdom;
-  const maxStamina = 18 + stats.vitality * 2 + stats.resolve * 2;
+  const maxHp = 80;
+  const maxMp = 55;
+  const maxStamina = 70;
 
   return {
     difficulty: DEFAULT_DIFFICULTY,
-    name: "Nameless",
+    name: "Krix",
     species: starter.species,
     evolution_stage: 0,
     level: 1,
     xp: 0,
-    xp_to_next: xpToNext(1),
+    xp_to_next: 100,
     hp: maxHp,
     max_hp: maxHp,
     mp: maxMp,
@@ -195,8 +191,64 @@ function createStartState() {
     reputation: -5,
     current_floor: 1,
     area_key: "moss_grotto",
-    scene_title: "First Breath",
-    scene_text: `You wake beneath cold moss with no hands, no human name that matters, and a body that belongs to a ${starter.species}. The world does not welcome you. It only checks whether you can survive the first hour.`,
+    scene_title: "The Time I Got Reincarnated as a Monster",
+    scene_text: `Death was supposed to be the end.
+
+One moment you were alive.
+The next, there was only darkness.
+No sky. No ground. No sound.
+
+Then a voice echoed through your soul.
+
+"Life terminated."
+
+Countless stars appeared around you, each containing fragments of memories from your previous life.
+The stars spiraled together.
+
+"Soul compatible."
+"Beginning Reincarnation Cycle."
+
+The void shattered.
+Images flashed before your eyes.
+
+Dragons. Goblins. Slimes. Wolves. Monsters of every kind.
+
+Then came warmth.
+A body.
+Small. Weak. Hungry.
+
+You gasped as air filled unfamiliar lungs.
+Your eyes snapped open.
+
+You lay within a cavern illuminated by glowing blue mushrooms. Around you were dozens of reptilian creatures with scales, tails, and yellow eyes.
+
+Kobolds.
+
+As your mind struggled to understand, a translucent blue window appeared before your vision.
+
+Another window appeared.
+
+The cave suddenly trembled.
+Dust rained from the ceiling.
+Several adult kobolds hissed nervously.
+
+Then a roar echoed from deeper within the mountain.
+
+A predator.
+A powerful one.
+
+Every instinct screamed danger.
+
+For the first time, you understood the truth.
+
+You weren't a hero.
+You weren't a chosen one.
+You were a freshly hatched kobold named Krix.
+
+Small.
+Weak.
+Hungry.
+And very easy to eat.`,
     stats,
     derived,
     skills: [...starter.active, ...starter.passive],
@@ -212,13 +264,110 @@ function createStartState() {
     quests: BASE_QUESTS,
     evolution_progress: {
       essence: 0,
-      available_paths: ["Greater " + starter.species, "Variant " + starter.species],
+      available_paths: ["Kobold Scout", "Kobold Bruiser", "Kobold Shaman"],
       conditions: ["Reach level 5", "Win 3 hunts", "Gain 25 essence"],
       ready: false
     },
     world_flags: { current_floor: 1, hunts_won: 0, actions: {}, discoveries: [], defeated: {} },
     is_alive: true
   };
+}
+
+function getDefaultChoices(run) {
+  return [
+    { key: "search_food", label: "A. Scramble for food before the other hatchlings take it.", detail: "Use instinct and speed." },
+    { key: "inspect_body", label: "B. Inspect your new kobold body and the blue window.", detail: "Understand your character sheet." },
+    { key: "watch_adults", label: "C. Stay low and watch the adult kobolds.", detail: "Use caution and observation." },
+    { key: "follow_roar", label: run.current_floor >= 10 ? "D. Face the source of the roar." : "D. Move toward the deeper roar.", detail: "Risk danger for information." }
+  ];
+}
+
+function getHatchlingConflictChoices() {
+  return [
+    { key: "bite_back", label: "A. Bite back at the aggressive hatchling.", detail: "Use Bite Lv.1." },
+    { key: "intimidate_hatchling", label: "B. Attempt to intimidate it with a snarl and show of force.", detail: "Use Resolve." },
+    { key: "dodge_hatchling", label: "C. Dodge the attack and create distance.", detail: "Use Agility." },
+    { key: "drop_food_flee", label: "D. Drop the food and flee.", detail: "Seek an easier meal elsewhere." },
+    { key: "outwit_hatchling", label: "E. Use your human intelligence to outwit it.", detail: "Type the trick if you want something specific." }
+  ];
+}
+
+function normalizeActionKey(actionInput) {
+  const text = String(actionInput || "").trim().toLowerCase();
+  if (["hunt", "explore", "train", "feed", "descend", "evolve"].includes(text)) return text;
+  if (/bite back|aggressive hatchling|bite lv\.?1/.test(text)) return "hatchling_bite";
+  if (/intimidate|snarl|show of force|resolve/.test(text)) return "hatchling_intimidate";
+  if (/dodge.*hatchling|create distance|agility/.test(text)) return "hatchling_dodge";
+  if (/drop.*food|flee|easier meal/.test(text)) return "hatchling_flee";
+  if (/outwit|human intelligence|trick/.test(text)) return "hatchling_outwit";
+  if (/food|eat|grub|mushroom|worship|obey|hoard|take all|scramble/.test(text)) return "food_dominance";
+  if (/bite|claw|attack|fight|beat|hit|strike|kill/.test(text)) return "hunt";
+  if (/inspect|sheet|window|body|status/.test(text)) return "inspect_body";
+  if (/hide|watch|adult|observe|listen|look/.test(text)) return "explore";
+  if (/run|flee|escape|dodge/.test(text)) return "dodge_hatchling";
+  if (/deeper|roar|descend|move/.test(text)) return "descend";
+  return "freeform";
+}
+
+function resolveHatchlingContest(state, actionKey, log) {
+  const rival = "the dull-grey hatchling";
+  if (actionKey === "hatchling_bite") {
+    state.stamina = Math.max(0, state.stamina - 5);
+    state.xp += 12;
+    addSkillXp(state.active_skills, "bite", 16, log);
+    addSkillXp(state.skills, "bite", 16, log);
+    log.push(`You lunge before ${rival} can take the mushroom. Your small jaws clamp down hard on its shoulder.
+
+It shrieks, more shocked than broken, and tumbles sideways. The food stays in your claws.
+
+The nearby hatchlings freeze for half a breath. They do not understand worship, but they understand teeth.`);
+    return;
+  }
+
+  if (actionKey === "hatchling_intimidate") {
+    state.stamina = Math.max(0, state.stamina - 3);
+    state.stats.resolve += 1;
+    state.xp += 10;
+    log.push(`You spread your claws, bare your teeth, and force a hiss from a throat that still feels alien.
+
+The sound comes out sharper than expected. ${rival} slows, uncertain. It is bigger, but hunger is not courage.
+
+You keep the grub. More importantly, the smaller hatchlings notice that you did not immediately fold.`);
+    return;
+  }
+
+  if (actionKey === "hatchling_dodge") {
+    state.stamina = Math.max(0, state.stamina - 4);
+    state.stats.agility += 1;
+    state.xp += 10;
+    log.push(`You throw yourself sideways. The grey hatchling's jaws snap shut on empty air, close enough that you feel the heat of its breath.
+
+Your tail slaps stone. The mushroom nearly slips from your claws, but you keep it.
+
+Distance opens. Not safety, but enough space to choose the next move.`);
+    return;
+  }
+
+  if (actionKey === "hatchling_flee") {
+    state.hunger = Math.max(0, state.hunger - 8);
+    state.stamina = Math.max(0, state.stamina - 6);
+    log.push(`You drop the mushroom and scramble back.
+
+The grey hatchling pounces on the food instead of your throat. It wins the meal. You win another few breaths.
+
+Your stomach twists painfully. Survival is not victory. Sometimes it is only the refusal to die first.`);
+    return;
+  }
+
+  state.xp += 14;
+  state.stats.intelligence += 1;
+  log.push(`Your human mind reaches through the panic.
+
+Instead of meeting force with force, you flick the glowing mushroom fragment toward a cluster of smaller hatchlings. Their eyes snap to it. Bodies collide. The grey hatchling hesitates as the food pile becomes chaos.
+
+You use that moment to drag the grub closer and shift behind a stone ridge.
+
+It is not dominance yet. It is the first proof that this tiny body still carries a thinking soul.`);
 }
 
 function levelUp(state, log) {
@@ -438,6 +587,53 @@ function resolveDescend(state, log) {
   log.push(`You descend to Floor ${floor.floor}: ${floor.name}. ${floor.description}`);
 }
 
+function resolveFoodDominance(state, log) {
+  state.hunger = Math.max(0, state.hunger - 4);
+  state.stamina = Math.max(0, state.stamina - 3);
+  state.inventory.push({ key: "cave_grub", name: "Slimy Cave Grub", quantity: 1, type: "food" });
+  state.inventory.push({ key: "blue_mushroom_fragment", name: "Blue Mushroom Fragment", quantity: 1, type: "food" });
+  state.world_flags.hatchling_rival = "grey_hatchling";
+  state.world_flags.food_hoard = true;
+  log.push(`The other hatchlings, driven by primal hunger, pay you little mind as you gather a small pile of scraps. They are too busy scrambling amongst themselves, tiny claws and teeth fighting for the easiest morsels.
+
+Taking all the food would draw the ire of every hungry hatchling and likely the adult kobolds nearby. Still, your ambition is clear. You seek dominance even in this newborn body.
+
+You secure a slimy cave grub and a fragment of glowing mushroom. It is not much, but it is a start.
+
+You open your mouth, ready to declare your terms, but the words catch in your throat. These creatures do not understand worship, tribute, or dominion. Their world is simpler.
+
+Eat or be eaten.
+
+A slightly larger hatchling with dull grey scales notices your hoard. It snarls, shoves two smaller kobolds aside, and lunges. Tiny jaws snap toward the mushroom in your grasp.
+
+You have secured a meager portion of food. Now you face immediate competition.`);
+}
+
+function resolveInspectBody(state, log) {
+  state.xp += 5;
+  state.world_flags.inspected_sheet = true;
+  log.push(`You stare at your claws until the truth settles in.
+
+Five fingers are gone. Soft human skin is gone. In their place are dark scales, a tail that twitches with your fear, and small claws sharp enough to tear flesh if you commit to it.
+
+The blue window follows your sight without moving.
+
+Name: Krix.
+Species: Kobold Hatchling.
+
+The name feels assigned, not remembered. The body accepts it before your mind does.`);
+}
+
+function resolveFreeform(state, actionInput, log) {
+  state.hunger = Math.max(0, state.hunger - 3);
+  state.stamina = Math.max(0, state.stamina - 2);
+  log.push(`You try: "${String(actionInput || "").trim()}"
+
+The thought is human. The body answering it is not.
+
+Your small claws flex, your tail drags over cold stone, and the hatchery reacts in simple animal terms: movement, hunger, fear, weakness. Whatever plan you make must pass through this fragile kobold body first.`);
+}
+
 function normalizeState(run) {
   const state = serializeRun(run);
   state.stats = { ...state.stats };
@@ -452,10 +648,11 @@ function normalizeState(run) {
   return state;
 }
 
-function applyAction(run, actionKey) {
+function applyAction(run, actionInput) {
   const state = normalizeState(run);
   const mod = BALANCE;
   const log = [];
+  const actionKey = normalizeActionKey(actionInput);
   const actionCount = incrementAction(state, actionKey);
 
   if (!state.is_alive && actionKey !== "reincarnate") {
@@ -469,13 +666,16 @@ function applyAction(run, actionKey) {
     };
   }
 
-  if (actionKey === "hunt") resolveHunt(state, mod, log);
+  if (actionKey.startsWith("hatchling_")) resolveHatchlingContest(state, actionKey, log);
+  else if (actionKey === "food_dominance") resolveFoodDominance(state, log);
+  else if (actionKey === "inspect_body") resolveInspectBody(state, log);
+  else if (actionKey === "hunt") resolveHunt(state, mod, log);
   else if (actionKey === "explore") resolveExplore(state, log);
   else if (actionKey === "train") resolveTrain(state, log);
   else if (actionKey === "feed") resolveFeed(state, log);
   else if (actionKey === "descend") resolveDescend(state, log);
   else if (actionKey === "evolve") resolveEvolve(state, log);
-  else log.push("You hesitate. In this world, even hesitation costs warmth.");
+  else resolveFreeform(state, actionInput, log);
 
   unlockByPractice(state, actionKey, actionCount, log);
   if (state.hunger <= 0 && state.is_alive) {
@@ -499,7 +699,12 @@ function applyAction(run, actionKey) {
 
   return {
     state,
-    event: { title, text, log }
+    event: {
+      title,
+      text,
+      log,
+      choices: actionKey === "food_dominance" ? getHatchlingConflictChoices() : getDefaultChoices(state)
+    }
   };
 }
 

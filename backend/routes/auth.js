@@ -2,8 +2,6 @@ const router = require("express").Router();
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const pool = require("../config/db");
-const GAME_CONFIG = require("../config/gameConfig");
-const { ensurePlayerConditionStats } = require("../services/skillEngine");
 
 function signAuthToken(user) {
   const role = user.role || "player";
@@ -31,7 +29,7 @@ function serializeUser(user) {
 
 // api/auth/register
 router.post("/register", async (req, res) => {
-  const { username, email, password, name } = req.body || {};
+  const { username, email, password } = req.body || {};
 
   if (!username || !email || !password) {
     return res.status(400).json({
@@ -74,61 +72,6 @@ router.post("/register", async (req, res) => {
     );
 
     const userId = userResult.insertId;
-
-    const [playerResult] = await conn.query(
-      `INSERT INTO players (
-        user_id,
-        persona,
-        name,
-        current_race,
-        current_title,
-        level,
-        exp,
-        stat_points,
-        hp,
-        max_hp,
-        strength_stat,
-        dexterity_stat,
-        stamina_stat,
-        intelligence_stat,
-        charisma_stat,
-        wisdom_stat,
-        current_floor,
-        current_area,
-        life_number,
-        is_alive,
-        year_survived,
-        day_survived,
-        current_hour
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        userId,
-        GAME_CONFIG.START_PERSONA,
-        name || username,
-        GAME_CONFIG.START_RACE,
-        GAME_CONFIG.START_TITLE,
-        GAME_CONFIG.START_LEVEL,
-        GAME_CONFIG.START_EXP,
-        GAME_CONFIG.START_STAT_POINTS,
-        GAME_CONFIG.START_HP,
-        GAME_CONFIG.START_MAX_HP,
-        GAME_CONFIG.START_STRENGTH,
-        GAME_CONFIG.START_DEXTERITY,
-        GAME_CONFIG.START_STAMINA,
-        GAME_CONFIG.START_INTELLIGENCE,
-        GAME_CONFIG.START_CHARISMA,
-        GAME_CONFIG.START_WISDOM,
-        GAME_CONFIG.START_FLOOR,
-        GAME_CONFIG.START_AREA,
-        1,
-        1,
-        GAME_CONFIG.START_YEAR,
-        GAME_CONFIG.START_DAY,
-        GAME_CONFIG.START_HOUR
-      ]
-    );
-
-    await ensurePlayerConditionStats(conn, playerResult.insertId);
 
     await conn.commit();
 

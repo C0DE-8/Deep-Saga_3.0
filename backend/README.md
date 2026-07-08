@@ -24,7 +24,7 @@ CREATE DATABASE deep_saga_3_0;
 mysql -u root -p deep_saga_3_0 < migrations/001_initial_schema.sql
 mysql -u root -p deep_saga_3_0 < migrations/002_monster_reincarnation_rpg.sql
 mysql -u root -p deep_saga_3_0 < migrations/003_single_rpg_flow_and_10_floors.sql
-mysql -u root -p deep_saga_3_0 < migrations/004_legacy_dungeon_schema_from_dump.sql
+mysql -u root -p deep_saga_3_0 < migrations/005_remove_legacy_unused_tables.sql
 ```
 
 ### 3. Environment Configuration
@@ -59,12 +59,6 @@ The server will run on http://localhost:5000
 - `POST /api/auth/register` - Register a new user
 - `POST /api/auth/login` - Login user
 
-### Player
-- `GET /api/player/profile` - Get player profile
-- `GET /api/player/skills` - Get player skills and condition stats
-- `POST /api/player/allocate-stats` - Allocate stat points
-- `POST /api/player/persona` - Update player persona
-
 ### Monster Reincarnation RPG
 - `GET /api/rpg/state` - Load the current reincarnation
 - `POST /api/rpg/start` - Start or restart the reincarnation flow
@@ -77,10 +71,6 @@ The server will run on http://localhost:5000
 
 ### Tables
 - `users` - User accounts
-- `players` - Player characters
-- `player_condition_stats` - Player statistics for skill unlocking
-- `skills` - Available skills
-- `player_skills` - Player-skill relationships
 - `rpg_reincarnations` - Monster RPG save state
 - `rpg_action_log` - Consequence history for RPG actions
 - `rpg_content_catalog` - Expandable RPG content definitions
