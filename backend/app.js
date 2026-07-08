@@ -7,6 +7,7 @@ const playRoutes = require("./routes/play");
 const storyRoutes = require("./routes/story");
 const rebirthRoutes = require("./routes/rebirth");
 const ascensionRoutes = require("./routes/ascension");
+const rpgRoutes = require("./routes/rpg");
 
 
 const app = express();
@@ -26,6 +27,7 @@ app.use("/api/action", playRoutes);
 app.use("/api/story", storyRoutes);
 app.use("/api/rebirth", rebirthRoutes);
 app.use("/api/ascension", ascensionRoutes);
+app.use("/api/rpg", rpgRoutes);
 
 
 

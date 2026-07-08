@@ -513,10 +513,11 @@ The prompt tells the AI:
 14. Database Files
 ------------------
 
-The backend has two schema-related SQL files:
+The backend schema is maintained through ordered migration files:
 
   migrations/001_initial_schema.sql
-  deep_saga_3_0.sql
+  migrations/002_monster_reincarnation_rpg.sql
+  migrations/003_single_rpg_flow_and_10_floors.sql
 
 migrations/001_initial_schema.sql:
 
@@ -524,17 +525,15 @@ migrations/001_initial_schema.sql:
 - Uses CREATE TABLE IF NOT EXISTS.
 - Good for setting up a new database.
 
-deep_saga_3_0.sql:
+migrations/002_monster_reincarnation_rpg.sql:
 
-- phpMyAdmin dump generated on Apr 22, 2026.
-- Contains table structures, indexes, auto-increment setup, and foreign keys.
-- Database name inside the dump is shown as deep_saga_3.0.
+- Adds monster reincarnation save data.
+- Adds action history and an expandable RPG content catalog.
 
-Note:
+migrations/003_single_rpg_flow_and_10_floors.sql:
 
-README.md says deep_saga_3.0.sql in one command, but the actual file in this folder is named:
-
-  deep_saga_3_0.sql
+- Adds current_floor to the RPG save.
+- Seeds the 10-floor descent content.
 
 
 15. Database Tables
@@ -674,7 +673,6 @@ Main backend files:
 - package.json: Defines scripts and dependencies.
 - README.md: Setup and endpoint documentation.
 - .env: Local secrets and runtime configuration.
-- deep_saga_3_0.sql: phpMyAdmin database dump.
 
 Config files:
 
@@ -766,4 +764,3 @@ This backend currently covers:
 Some game systems appear prepared in services but are not exposed as API routes yet.
 For example, skillEngine.js has behavior tracking and dynamic skill progression helpers,
 but the visible routes currently only expose profile, skills, stat allocation, and persona.
-

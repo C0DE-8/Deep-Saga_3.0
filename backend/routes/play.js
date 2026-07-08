@@ -1,6 +1,6 @@
 const router = require("express").Router();
 const pool = require("../config/db");
-const { model } = require("../config/gemini");
+const { generateAiText, getConfiguredProvider } = require("../config/ai");
 const { buildPrompt, buildActionInterpretationPrompt, buildWorldDirectorPrompt } = require("../config/prompts");
 const authenticateToken = require("../middleware/authMiddleware");
 const { getActionTimeCost, applyTime, getTimeOfDay } = require("../services/timeEngine");
@@ -734,7 +734,7 @@ router.get("/current", authenticateToken, async function getCurrentState(req, re
 
   async function narrateScene(context) {
     try {
-      if (!process.env.GEMINI_API_KEY) {
+      if (!getConfiguredProvider()) {
         return {
           narration: "",
           choices: []
@@ -745,8 +745,8 @@ router.get("/current", authenticateToken, async function getCurrentState(req, re
         persona: context.player.persona,
         context
       });
-      const result = await model.generateContent(prompt);
-      const parsed = parseAiJson(result.response.text());
+      const text = await generateAiText(prompt);
+      const parsed = parseAiJson(text);
 
       return {
         narration: String(parsed.narration || ""),
@@ -1431,7 +1431,7 @@ router.post("/start", authenticateToken, async function startGame(req, res) {
 
   async function narrateScene(context) {
     try {
-      if (!process.env.GEMINI_API_KEY) {
+      if (!getConfiguredProvider()) {
         return {
           narration: "",
           choices: []
@@ -1442,8 +1442,8 @@ router.post("/start", authenticateToken, async function startGame(req, res) {
         persona: context.player.persona,
         context
       });
-      const result = await model.generateContent(prompt);
-      const parsed = parseAiJson(result.response.text());
+      const text = await generateAiText(prompt);
+      const parsed = parseAiJson(text);
 
       return {
         narration: String(parsed.narration || ""),
@@ -1682,7 +1682,7 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
 
   async function narrateScene(context) {
     try {
-      if (!process.env.GEMINI_API_KEY) {
+      if (!getConfiguredProvider()) {
         return {
           narration: "",
           choices: []
@@ -1693,8 +1693,8 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
         persona: context.player.persona,
         context
       });
-      const result = await model.generateContent(prompt);
-      const parsed = parseAiJson(result.response.text());
+      const text = await generateAiText(prompt);
+      const parsed = parseAiJson(text);
 
       return {
         narration: String(parsed.narration || ""),
@@ -1851,8 +1851,8 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
       };
     }
 
-    if (!process.env.GEMINI_API_KEY) {
-      return fallbackInterpretation("Gemini is not configured");
+    if (!getConfiguredProvider()) {
+      return fallbackInterpretation("AI provider is not configured");
     }
 
     try {
@@ -1861,8 +1861,8 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
         context,
         action: actionInput
       });
-      const result = await model.generateContent(prompt);
-      const parsed = parseAiJson(result.response.text());
+      const text = await generateAiText(prompt);
+      const parsed = parseAiJson(text);
       const parsedComponents = normalizeCombatComponents(parsed.combat_components);
       const rawMechanicKey = String(parsed.mechanic_key || "typed");
       const mechanicKey = rawMechanicKey === "typed" && parsedComponents.length ? "attack" : rawMechanicKey;
@@ -2010,8 +2010,8 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
       };
     }
 
-    if (!process.env.GEMINI_API_KEY) {
-      return fallbackDirective("Gemini is not configured");
+    if (!getConfiguredProvider()) {
+      return fallbackDirective("AI provider is not configured");
     }
 
     try {
@@ -2020,8 +2020,8 @@ router.post("/action", authenticateToken, async function resolveAction(req, res)
         context,
         actionInterpretation
       });
-      const result = await model.generateContent(prompt);
-      const parsed = parseAiJson(result.response.text());
+      const text = await generateAiText(prompt);
+      const parsed = parseAiJson(text);
       const outcomeKey = cleanString(parsed.outcome_key, "observe");
       const movement = cleanString(parsed.route_result?.movement, "stay");
       const restState = cleanString(parsed.rest_result?.state, "none");

@@ -1,725 +1,385 @@
 .page {
   min-height: 100vh;
-  background: #000;
-  color: #f3f3f3;
-  display: flex;
-  flex-direction: column;
-  font-family: Georgia, "Times New Roman", serif;
+  background: #0b0d10;
+  color: #edf2f7;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 .content {
-  flex: 1;
-  padding: 96px 20px 110px;
-  max-width: 720px;
-  width: 100%;
+  width: min(1180px, calc(100% - 32px));
   margin: 0 auto;
-  box-sizing: border-box;
+  padding: 92px 0 110px;
 }
 
-.topBar {
-  display: grid;
-  grid-template-columns: 80px 1fr 50px;
-  align-items: center;
-  margin-bottom: 24px;
-}
-
-.leftGroup {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.logo {
-  margin: 0;
-  text-align: center;
-  font-size: 2rem;
-  font-weight: 500;
-  color: #f5f5f5;
-  letter-spacing: 0.5px;
-}
-
-.floorNumber {
-  font-size: 2rem;
-  line-height: 1;
-  color: #f5f5f5;
-}
-
-.iconButton {
-  border: none;
-  background: transparent;
-  color: #f5f5f5;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  cursor: pointer;
-}
-
-.statsCard {
-  border: 2px solid #d8d8d8;
+.emptyState,
+.startPanel {
+  min-height: 430px;
+  border: 1px solid #24303d;
   border-radius: 8px;
-  min-height: 80px;
-  padding: 0 28px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
-}
-
-.statItem {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 1.45rem;
-}
-
-.statLabel {
-  color: #eaeaea;
-}
-
-.statValue {
-  color: #ffffff;
-  font-weight: 500;
-}
-
-.plusIcon {
-  color: #39ff3d;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.healthTrack {
-  width: 100%;
-  height: 6px;
-  background: #151515;
-  border: 1px solid #2d2d2d;
-  margin-bottom: 16px;
-  overflow: hidden;
-}
-
-.healthFill {
-  height: 100%;
-  background: #39ff3d;
-  transition: width 0.25s ease;
-}
-
-.metaGrid {
+  background: #111720;
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
-  margin-bottom: 18px;
-}
-
-.metaGrid span {
-  min-height: 36px;
-  border: 1px solid #333;
-  color: #d8d8d8;
-  background: #070707;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 6px 8px;
-  text-align: center;
-  font-size: 0.82rem;
-  line-height: 1.2;
-  overflow-wrap: anywhere;
-}
-
-.statusText {
-  margin: 0 0 18px;
-  color: #9fc9ff;
-  text-align: center;
-  line-height: 1.4;
-  font-size: 0.95rem;
-}
-
-.loadingPanel {
-  min-height: 280px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
+  align-content: center;
+  justify-items: center;
   gap: 14px;
-  color: #d8d8d8;
+  padding: 28px;
+  text-align: center;
 }
 
-.loadingPanel p {
+.startPanel span,
+.scenePanel span,
+.identityPanel > span,
+.panel h3 {
+  color: #8fb4ff;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.startPanel h1,
+.scenePanel h1 {
+  max-width: 720px;
   margin: 0;
+  font-size: clamp(2rem, 5vw, 4rem);
+  line-height: 1;
 }
 
-.storyHeader {
+.startPanel p {
+  max-width: 680px;
+  margin: 0;
+  color: #aab7c7;
+  line-height: 1.6;
+}
+
+.startForm {
   display: grid;
-  grid-template-columns: 50px 1fr 50px;
-  align-items: center;
-  margin-bottom: 18px;
+  grid-template-columns: minmax(0, 280px) auto;
+  gap: 10px;
+  margin-top: 8px;
 }
 
-.chevronButton {
+.startForm input {
+  border: 1px solid #344253;
+  border-radius: 8px;
+  background: #0b0d10;
+  color: #edf2f7;
+  font: inherit;
+  padding: 12px 14px;
+}
+
+.startForm button,
+.restartButton {
   border: none;
-  background: transparent;
-  color: #f0f0f0;
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  padding: 0;
+  border-radius: 8px;
+  background: #67e8a3;
+  color: #07100b;
   cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+  padding: 12px 16px;
 }
 
-.storyHeaderCenter {
-  text-align: center;
+.heroGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.6fr);
+  gap: 16px;
+  align-items: stretch;
 }
 
-.storyMode {
+.scenePanel,
+.identityPanel,
+.panel {
+  border: 1px solid #24303d;
+  border-radius: 8px;
+  background: #111720;
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.25);
+}
+
+.scenePanel {
+  min-height: 320px;
+  padding: 28px;
+  display: grid;
+  align-content: end;
+  gap: 16px;
+}
+
+.scenePanel p {
   margin: 0;
-  font-size: 1.8rem;
-  font-weight: 500;
-}
-
-.storyImageButton {
-  color: #2493ff;
-  justify-self: end;
-}
-
-.locationTitle {
-  text-align: center;
-  margin: 8px 0 34px;
-  font-size: 1.75rem;
-  font-weight: 500;
-  line-height: 1.3;
-}
-
-.storySection {
-  margin-bottom: 28px;
-}
-
-.storyText {
-  margin: 0;
-  font-size: 1rem;
-  line-height: 1.45;
-  color: #ededed;
-  letter-spacing: 0.2px;
+  color: #d4dce7;
+  font-size: 1.05rem;
+  line-height: 1.65;
   white-space: pre-line;
 }
 
-.flagWrap {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 18px;
+.identityPanel {
+  padding: 22px;
 }
 
-.flagButton {
-  border: none;
-  background: transparent;
-  color: #ff1f1f;
-  cursor: pointer;
+.identityPanel h2 {
+  margin: 8px 0 16px;
+  font-size: 1.6rem;
+}
+
+.identityPanel dl {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+}
+
+.identityPanel dl div {
+  border-top: 1px solid #202936;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 10px;
+}
+
+.identityPanel dt {
+  color: #8b99aa;
+}
+
+.identityPanel dd {
+  margin: 0;
+  color: #ffffff;
+  font-weight: 700;
+  text-align: right;
+}
+
+.metersGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.meter,
+.resourceCard {
+  border: 1px solid #24303d;
+  border-radius: 8px;
+  background: #111720;
+  padding: 14px;
+}
+
+.meterTop,
+.resourceCard {
   display: flex;
   align-items: center;
-  justify-content: center;
-  padding: 0;
+  justify-content: space-between;
+  gap: 10px;
 }
 
-.choicesSection {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
+.meterTop span,
+.resourceCard {
+  color: #aab7c7;
 }
 
-.choiceCard:hover:not(:disabled) {
-  background: #111;
-  transform: translateY(-2px);
-  border-color: #ffffff;
+.meterTop strong,
+.resourceCard strong {
+  color: #fff;
 }
 
-.choiceCard:disabled,
-.sendButton:disabled,
-.primaryButton:disabled,
-.secondaryButton:disabled {
+.meterTrack {
+  height: 8px;
+  background: #07090d;
+  border-radius: 999px;
+  margin-top: 10px;
+  overflow: hidden;
+}
+
+.meterFill {
+  height: 100%;
+  border-radius: inherit;
+}
+
+.red {
+  background: #ff6b6b;
+}
+
+.blue {
+  background: #60a5fa;
+}
+
+.green {
+  background: #67e8a3;
+}
+
+.gold {
+  background: #f8c35b;
+}
+
+.choiceGrid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.choiceGrid button {
+  min-height: 132px;
+  border: 1px solid #2b3746;
+  border-radius: 8px;
+  background: #151d28;
+  color: #edf2f7;
+  cursor: pointer;
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  padding: 14px;
+  text-align: left;
+  font: inherit;
+}
+
+.choiceGrid button:hover:not(:disabled) {
+  border-color: #67e8a3;
+  transform: translateY(-1px);
+}
+
+.choiceGrid button:disabled,
+.startForm button:disabled,
+.restartButton:disabled {
   cursor: not-allowed;
   opacity: 0.55;
 }
 
-.choiceCard {
-  width: 100%;
-  background: #080808;
-  border: 2px solid #d8d8d8;
-  color: #f5f5f5;
-  padding: 26px 18px;
-  font-size: 1rem;
-  line-height: 1.4;
-  text-align: center;
-  cursor: pointer;
-  border-radius: 0;
-  font-family: Georgia, "Times New Roman", serif;
-  transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+.choiceGrid span {
+  color: #95a3b6;
+  font-size: 0.88rem;
+  line-height: 1.35;
 }
 
-.dividerWrap {
-  display: flex;
-  justify-content: center;
-  margin: 28px 0 22px;
-}
-
-.divider {
-  width: 230px;
-  height: 2px;
-  background: #d8d8d8;
-  border-radius: 999px;
-}
-
-.inputSection {
-  margin-bottom: 18px;
-}
-
-.inputBox {
-  border: 2px solid #d8d8d8;
+.sheetGrid {
   display: grid;
-  grid-template-columns: 56px 1fr 56px;
-  align-items: center;
-  min-height: 72px;
-  padding: 0 8px;
-  background: #080808;
-}
-
-.inputIcon,
-.sendButton {
-  border: none;
-  background: transparent;
-  color: #9d9d9d;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-}
-
-.keyboardIcon {
-  font-size: 1.4rem;
-}
-
-.spinIcon {
-  animation: hourglassSpin 0.9s linear infinite;
-  color: #f5f5f5;
-}
-
-@keyframes hourglassSpin {
-  from {
-    transform: rotate(0deg);
-  }
-
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.input {
-  width: 100%;
-  background: transparent;
-  border: none;
-  outline: none;
-  color: #ededed;
-  font-size: 1rem;
-  font-family: Georgia, "Times New Roman", serif;
-  text-align: center;
-}
-
-.input::placeholder {
-  color: #9d9d9d;
-  opacity: 1;
-}
-
-.threatPanel {
-  border: 1px solid #c83d3d;
-  background: #0d0505;
-  margin: 0 0 22px;
-  padding: 14px;
-  display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
-  align-items: center;
 }
 
-.threatPanel div {
+.panel {
+  padding: 18px;
+}
+
+.panel h3 {
+  margin: 0 0 14px;
+}
+
+.statGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.statGrid div,
+.skillRow,
+.inventoryList div,
+.questList div {
+  border: 1px solid #202936;
+  border-radius: 8px;
+  background: #0d1219;
+  padding: 10px;
+}
+
+.statGrid div {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  justify-content: space-between;
+  gap: 10px;
 }
 
-.threatLabel {
-  color: #ff7373;
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+.statGrid span,
+.skillRow span,
+.questList span,
+.questList small,
+.equipmentLine,
+.evolutionBox span {
+  color: #9aa8ba;
 }
 
-.threatPanel strong {
-  color: #fff;
-  font-size: 1.1rem;
-}
-
-.threatPanel small {
-  color: #bdbdbd;
-  line-height: 1.35;
-}
-
-.threatMeta {
-  display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 4px;
-}
-
-.threatMeta span {
-  border: 1px solid #3b2626;
-  color: #ffb0b0;
-  padding: 3px 6px;
-  font-size: 0.72rem;
-}
-
-.encounterPanel,
-.hazardPanel {
-  border: 1px solid #333;
-  background: #070707;
-  margin: 0 0 22px;
-  padding: 12px;
-}
-
-.threatSourcePanel {
-  border: 1px solid #4b5360;
-  background: #07090c;
-  color: #dbe5f0;
-  margin: 0 0 22px;
-  padding: 12px;
-}
-
-.remainsPanel {
-  border: 1px solid #3d3d3d;
-  background: #090909;
-  color: #d7d7d7;
+.skillList,
+.inventoryList,
+.questList,
+.evolutionBox {
   display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 14px;
-  align-items: center;
-  margin: 0 0 22px;
-  padding: 12px;
+  gap: 8px;
 }
 
-.inactiveEncounterPanel {
-  border: 1px solid #3b3f45;
-  background: #080a0c;
-  color: #d6dde6;
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 14px;
-  align-items: center;
-  margin: 0 0 22px;
-  padding: 12px;
-}
-
-.remainsPanel div {
-  display: grid;
-  gap: 5px;
-}
-
-.inactiveEncounterPanel div {
-  display: grid;
-  gap: 5px;
-}
-
-.remainsPanel span,
-.inactiveEncounterPanel span,
-.corpseHazardPanel span,
-.residualPanel span {
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.remainsPanel span {
-  color: #a9a9a9;
-}
-
-.inactiveEncounterPanel span {
-  color: #95a8bd;
-}
-
-.remainsPanel strong {
-  color: #eeeeee;
-}
-
-.inactiveEncounterPanel strong {
-  color: #edf4ff;
-  text-transform: capitalize;
-}
-
-.remainsPanel p {
-  color: #b8b8b8;
-  line-height: 1.35;
-  margin: 0;
-}
-
-.inactiveEncounterPanel p {
-  color: #b9c2cc;
-  line-height: 1.35;
-  margin: 0;
-}
-
-.remainsPanel em {
-  border: 1px solid #454545;
-  color: #c8c8c8;
-  font-size: 0.78rem;
-  font-style: normal;
-  padding: 5px 7px;
-  text-transform: uppercase;
-}
-
-.inactiveEncounterPanel em {
-  border: 1px solid #3f4a57;
-  color: #c6d5e5;
-  font-size: 0.78rem;
-  font-style: normal;
-  padding: 5px 7px;
-  text-transform: uppercase;
-}
-
-.panelHeader {
+.skillRow {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  color: #d8d8d8;
-  margin-bottom: 10px;
-}
-
-.panelHeader span,
-.hazardPanel span,
-.threatSourcePanel span {
-  color: #9fc9ff;
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.enemyList {
-  display: grid;
-  gap: 8px;
-}
-
-.enemyRow {
-  display: grid;
-  grid-template-columns: 1fr auto;
   gap: 12px;
-  align-items: center;
-  border-top: 1px solid #1f1f1f;
-  padding-top: 8px;
 }
 
-.enemyRow div {
+.skillRow div {
   display: grid;
-  gap: 3px;
+  gap: 4px;
 }
 
-.enemyRow strong,
-.hazardPanel strong,
-.threatSourcePanel strong {
-  color: #fff;
+.skillRow small {
+  color: #67e8a3;
+  white-space: nowrap;
 }
 
-.enemyRow span {
-  color: #bdbdbd;
-  font-size: 0.82rem;
-}
-
-.hazardPanel {
-  border-color: #665a25;
-}
-
-.hazardPanel p {
-  color: #cfc7a0;
-  line-height: 1.35;
-  margin: 8px 0 0;
-}
-
-.threatSourcePanel p {
-  color: #b9c9da;
-  line-height: 1.35;
-  margin: 8px 0 0;
-}
-
-.corpseHazardPanel,
-.residualPanel {
-  background: #0d0b04;
-  margin: 0 0 22px;
-  padding: 12px;
-}
-
-.corpseHazardPanel {
-  border: 1px solid #9a7b22;
-}
-
-.residualPanel {
-  border: 1px solid #5e76a5;
-  background: #05080e;
-}
-
-.corpseHazardPanel span {
-  color: #f0c85a;
-}
-
-.residualPanel span {
-  color: #9dbdff;
-}
-
-.corpseHazardPanel strong,
-.residualPanel strong {
-  color: #fff;
-  display: block;
-  margin-top: 5px;
-}
-
-.corpseHazardPanel p,
-.residualPanel p {
-  color: #d8d0b0;
-  line-height: 1.35;
-  margin: 8px 0 0;
-}
-
-.residualPanel p {
-  color: #bdc9e6;
-}
-
-.battlePanel {
-  border: 1px solid #333;
-  background: #070707;
-  color: #e5e5e5;
-  display: grid;
-  gap: 8px;
-  margin: 0 0 22px;
-  padding: 12px;
-  font-size: 0.9rem;
-}
-
-.battleStats {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  text-align: center;
-}
-
-.battleDetail {
-  display: grid;
-  gap: 6px;
-  line-height: 1.4;
-}
-
-.battleDetail strong {
-  color: #fff;
-  font-size: 0.98rem;
-}
-
-.battleDetail span {
-  color: #cfcfcf;
-}
-
-.wishPanel {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin: 22px 0;
-}
-
-.wishInput {
-  min-height: 64px;
-  border: 2px solid #d8d8d8;
-  background: #080808;
-  color: #ededed;
-  padding: 0 16px;
-  outline: none;
-  text-align: center;
-  font-size: 1rem;
-  font-family: Georgia, "Times New Roman", serif;
-}
-
-.wishInput::placeholder {
-  color: #9d9d9d;
-}
-
-.primaryButton,
-.secondaryButton {
-  min-height: 54px;
-  border: 2px solid #d8d8d8;
-  background: #f5f5f5;
-  color: #050505;
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 1rem;
-  cursor: pointer;
-}
-
-.secondaryButton {
-  background: #080808;
-  color: #f5f5f5;
-}
-
-.skillsRow {
+.tags {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 18px;
 }
 
-.skillsRow span {
-  border: 1px solid #333;
-  color: #d8d8d8;
-  background: #070707;
+.tags span,
+.tags em,
+.skillList em,
+.inventoryList em {
+  border: 1px solid #2b3746;
+  border-radius: 999px;
+  color: #dce5f0;
+  background: #0d1219;
+  font-style: normal;
   padding: 7px 10px;
-  font-size: 0.82rem;
 }
 
-@media (max-width: 480px) {
-  .content {
-    padding: 84px 14px 110px;
+.inventoryList div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.equipmentLine {
+  margin-top: 12px;
+  line-height: 1.5;
+}
+
+.questList div {
+  display: grid;
+  gap: 5px;
+}
+
+.evolutionBox strong {
+  color: #f8c35b;
+}
+
+@media (max-width: 920px) {
+  .heroGrid,
+  .sheetGrid {
+    grid-template-columns: 1fr;
   }
 
-  .logo {
-    font-size: 1.55rem;
-  }
-
-  .floorNumber {
-    font-size: 1.7rem;
-  }
-
-  .statsCard {
-    padding: 0 16px;
-    min-height: 76px;
-  }
-
-  .statItem {
-    font-size: 1.05rem;
-    gap: 6px;
-  }
-
-  .storyMode {
-    font-size: 1.35rem;
-  }
-
-  .locationTitle {
-    font-size: 1.1rem;
-    margin-bottom: 24px;
-  }
-
-  .storyText {
-    font-size: 0.95rem;
-  }
-
-  .metaGrid {
+  .metersGrid,
+  .choiceGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+}
 
-  .choiceCard {
-    padding: 22px 14px;
-    font-size: 0.95rem;
+@media (max-width: 620px) {
+  .content {
+    width: min(100% - 20px, 1180px);
+    padding-top: 84px;
   }
 
-  .inputBox {
-    min-height: 68px;
+  .startForm,
+  .metersGrid,
+  .choiceGrid,
+  .statGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .scenePanel {
+    padding: 20px;
   }
 }
